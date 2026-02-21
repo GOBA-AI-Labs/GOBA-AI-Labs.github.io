@@ -59,7 +59,7 @@ nav {
   height: 60px;
 }
 .nav-logo-img {
-  height: 28px;
+  height: 36px;
   width: auto;
   display: block;
   filter: invert(1);
@@ -294,6 +294,6 @@ footer {
 }
 
 @media (max-width: 480px) {
-  .nav-logo-img { height: 22px; }
+  .nav-logo-img { height: 28px; }
   .footer-inner { flex-direction: column; gap: 12px; text-align: center; }
 }
