@@ -62,6 +62,11 @@ nav {
   height: 28px;
   width: auto;
   display: block;
+  filter: invert(1);
+  transition: filter 0.3s;
+}
+[data-theme="light"] .nav-logo-img {
+  filter: none;
 }
 .nav-right {
   display: flex; gap: 24px; align-items: center;
