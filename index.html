@@ -9,18 +9,33 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
 </head>
 <body>
 
 <!-- Nav -->
 <nav>
   <div class="nav-inner">
-    <a href="/" class="logo">GOBA-AI-Labs</a>
-    <div class="nav-links">
-      <a href="#models">Models</a>
-      <a href="#technology">Technology</a>
-      <a href="https://huggingface.co/GOBA-AI-Labs" target="_blank">HuggingFace</a>
-      <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn-nav">Support Us</a>
+    <a href="/" class="logo">
+      <img id="nav-logo" src="logo-dark.svg" alt="GOBA AI Labs" class="nav-logo-img">
+    </a>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="#models" data-i18n="nav.models">Models</a>
+        <a href="#technology" data-i18n="nav.technology">Technology</a>
+        <a href="https://huggingface.co/GOBA-AI-Labs" target="_blank" data-i18n="nav.huggingface">HuggingFace</a>
+        <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn-nav" data-i18n="nav.support">Support Us</a>
+      </div>
+      <div class="nav-controls">
+        <button id="theme-toggle" aria-label="Toggle theme"></button>
+        <div class="lang-switcher">
+          <button class="lang-option active" data-lang="en">EN</button>
+          <button class="lang-option" data-lang="ja">JA</button>
+          <button class="lang-option" data-lang="zh-CN">ZH</button>
+          <button class="lang-option" data-lang="zh-TW">TW</button>
+          <button class="lang-option" data-lang="ko">KO</button>
+        </div>
+      </div>
     </div>
   </div>
 </nav>
@@ -28,22 +43,22 @@
 <!-- Hero -->
 <section class="hero">
   <div class="container">
-    <h1>Run 400B+ AI models<br>on your laptop.</h1>
-    <p class="subtitle">
-      We compress Mixture-of-Experts models by 50-90% while preserving quality.
-      No retraining. No quality loss. Just fewer experts.
+    <h1 data-i18n="hero.title">Half the experts.<br>Full quality.</h1>
+    <p class="subtitle" data-i18n="hero.subtitle">
+      We remove up to 50% of MoE experts while preserving benchmark scores.
+      Proven on models up to 80B — our goal is 400B+ on consumer hardware.
     </p>
     <div class="hero-actions">
-      <a href="#models" class="btn btn-primary">Browse Models</a>
-      <a href="https://huggingface.co/GOBA-AI-Labs" target="_blank" class="btn btn-secondary">HuggingFace</a>
+      <a href="#models" class="btn btn-primary" data-i18n="hero.browse">Browse Models</a>
+      <a href="https://huggingface.co/GOBA-AI-Labs" target="_blank" class="btn btn-secondary" data-i18n="hero.huggingface">HuggingFace</a>
     </div>
     <div class="hero-stat">
       <div class="stat">
-        <span class="stat-value">240 GB</span>
+        <span class="stat-value">45 GB</span>
         <span class="stat-arrow">&rarr;</span>
         <span class="stat-value highlight">24 GB</span>
       </div>
-      <span class="stat-label">Qwen3.5-397B compressed to fit 24GB RAM</span>
+      <span class="stat-label" data-i18n="hero.stat">Qwen3-Coder-Next (80B) — 50% expert pruning, MMLU 72%</span>
     </div>
   </div>
 </section>
@@ -51,12 +66,12 @@
 <!-- Models -->
 <section id="models" class="models">
   <div class="container">
-    <h2>PrunedHub Models</h2>
-    <p class="section-desc">Drop-in replacements for llama.cpp. Download and run.</p>
+    <h2 data-i18n="models.title">PrunedHub Models</h2>
+    <p class="section-desc" data-i18n="models.desc">Drop-in replacements for llama.cpp. Download and run.</p>
     <div class="model-grid">
 
       <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-28x" target="_blank" class="model-card">
-        <div class="model-badge lossless">Lossless</div>
+        <div class="model-badge lossless" data-i18n="model.lossless">Lossless</div>
         <h3>GPT-OSS-20B-28x</h3>
         <p class="model-base">openai/gpt-oss-20b</p>
         <div class="model-stats">
@@ -69,15 +84,19 @@
             <span class="value">78%</span>
           </div>
           <div class="model-stat-item">
-            <span class="label">Reduction</span>
-            <span class="value">-10.9%</span>
+            <span class="label">HumanEval</span>
+            <span class="value">78%</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">GSM8K</span>
+            <span class="value">92%</span>
           </div>
         </div>
-        <p class="model-desc">Zero quality degradation. 12.5% of experts removed. Fits 16GB RAM with room for KV cache.</p>
+        <p class="model-desc" data-i18n="model.gptoss28.desc">Zero quality loss across all benchmarks. MMLU 78%, HumanEval 78%, GSM8K 92%. Fits 16GB RAM.</p>
       </a>
 
       <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-Coder-Next-50pct" target="_blank" class="model-card">
-        <div class="model-badge extreme">50% Pruned</div>
+        <div class="model-badge extreme" data-i18n="model.50pruned">50% Pruned</div>
         <h3>Qwen3-Coder-Next-50pct</h3>
         <p class="model-base">Qwen/Qwen3-Coder-Next</p>
         <div class="model-stats">
@@ -94,11 +113,11 @@
             <span class="value">-45.8%</span>
           </div>
         </div>
-        <p class="model-desc">80B model compressed to 24GB. Outperforms Q2 quantization at similar size.</p>
+        <p class="model-desc" data-i18n="model.qwen80b.desc">80B model compressed to 24GB. MMLU 72%. At 44% pruning (27.7 GB): LCB Easy 83%, HumanEval 72%.</p>
       </a>
 
       <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-30B-A3B-JP-80pct" target="_blank" class="model-card">
-        <div class="model-badge ja">Japanese</div>
+        <div class="model-badge ja" data-i18n="model.japanese">Japanese</div>
         <h3>Qwen3-30B-A3B-JP-80pct</h3>
         <p class="model-base">Qwen/Qwen3-30B-A3B</p>
         <div class="model-stats">
@@ -115,11 +134,11 @@
             <span class="value">-19.1%</span>
           </div>
         </div>
-        <p class="model-desc">Language-aware pruning preserves Japanese quality. Thinking-ON: MMLU 79%, JA 90%.</p>
+        <p class="model-desc" data-i18n="model.jp30b.desc">Language-aware pruning preserves Japanese quality. Thinking-ON: MMLU 79%, JA 90%.</p>
       </a>
 
       <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-27x-Zerobias" target="_blank" class="model-card">
-        <div class="model-badge experimental">Experimental</div>
+        <div class="model-badge experimental" data-i18n="model.experimental">Experimental</div>
         <h3>GPT-OSS-20B-27x-Zerobias</h3>
         <p class="model-base">openai/gpt-oss-20b</p>
         <div class="model-stats">
@@ -136,7 +155,7 @@
             <span class="value">-19.5%</span>
           </div>
         </div>
-        <p class="model-desc">Router optimization recovers quality at the pruning cliff. -1pp with 15.6% fewer experts.</p>
+        <p class="model-desc" data-i18n="model.zerobias.desc">Router optimization recovers quality at the pruning cliff. -1pp with 15.6% fewer experts.</p>
       </a>
 
     </div>
@@ -146,65 +165,100 @@
 <!-- Technology -->
 <section id="technology" class="technology">
   <div class="container">
-    <h2>How It Works</h2>
-    <p class="section-desc">Expert pruning, not aggressive quantization.</p>
+    <h2 data-i18n="tech.title">How It Works</h2>
+    <p class="section-desc" data-i18n="tech.desc">Expert pruning, not aggressive quantization.</p>
     <div class="tech-grid">
 
       <div class="tech-card">
         <div class="tech-icon">&#x1F50D;</div>
-        <h3>Calibration-Based Scoring</h3>
-        <p>Expert importance measured through actual inference on diverse workloads. Significantly more accurate than static weight analysis.</p>
+        <h3 data-i18n="tech.calibration">Calibration-Based Scoring</h3>
+        <p data-i18n="tech.calibration.desc">Expert importance measured through actual inference on diverse workloads. Significantly more accurate than static weight analysis.</p>
       </div>
 
       <div class="tech-card">
         <div class="tech-icon">&#x1F4CA;</div>
-        <h3>Layer-Adaptive Allocation</h3>
-        <p>Each layer retains a dynamically determined number of experts. Some layers are more sensitive to pruning — adaptive allocation preserves quality where it matters.</p>
+        <h3 data-i18n="tech.adaptive">Layer-Adaptive Allocation</h3>
+        <p data-i18n="tech.adaptive.desc">Each layer retains a dynamically determined number of experts. Some layers are more sensitive to pruning — adaptive allocation preserves quality where it matters.</p>
       </div>
 
       <div class="tech-card">
         <div class="tech-icon">&#x1F30F;</div>
-        <h3>Language-Aware Optimization</h3>
-        <p>Automatic detection and protection of language-specialized experts. Japanese, Chinese, and other language capabilities preserved during compression.</p>
+        <h3 data-i18n="tech.language">Language-Aware Optimization</h3>
+        <p data-i18n="tech.language.desc">Automatic detection and protection of language-specialized experts. Japanese, Chinese, and other language capabilities preserved during compression.</p>
       </div>
 
       <div class="tech-card">
         <div class="tech-icon">&#x26A1;</div>
-        <h3>Zerobias Router Optimization</h3>
-        <p>Post-pruning router bias correction extends the lossless compression frontier. Zero cost, no retraining required.</p>
+        <h3 data-i18n="tech.zerobias">Zerobias Router Optimization</h3>
+        <p data-i18n="tech.zerobias.desc">Post-pruning router bias correction extends the lossless compression frontier. Zero cost, no retraining required.</p>
       </div>
 
     </div>
 
     <div class="comparison">
-      <h3>Expert Pruning vs Quantization</h3>
+      <h3 data-i18n="comp.title">Expert Pruning vs Quantization</h3>
       <div class="comparison-table">
         <div class="comp-row comp-header">
           <span></span>
-          <span>Expert Pruning</span>
-          <span>Q2 Quantization</span>
+          <span data-i18n="comp.pruning">Expert Pruning</span>
+          <span data-i18n="comp.quantization">Q2 Quantization</span>
         </div>
         <div class="comp-row">
-          <span>Approach</span>
-          <span>Remove redundant experts entirely</span>
-          <span>Reduce precision of all weights</span>
+          <span data-i18n="comp.approach">Approach</span>
+          <span data-i18n="comp.pruning.approach">Remove redundant experts entirely</span>
+          <span data-i18n="comp.quant.approach">Reduce precision of all weights</span>
         </div>
         <div class="comp-row">
-          <span>Quality impact</span>
-          <span class="good">Targeted, minimal</span>
-          <span class="bad">Uniform degradation</span>
+          <span data-i18n="comp.quality">Quality impact</span>
+          <span class="good" data-i18n="comp.pruning.quality">Targeted, minimal</span>
+          <span class="bad" data-i18n="comp.quant.quality">Uniform degradation</span>
         </div>
         <div class="comp-row">
-          <span>~24 GB model quality</span>
-          <span class="good">MMLU 72%</span>
-          <span class="bad">MMLU ~55-60%</span>
+          <span data-i18n="comp.24gb">~24 GB model quality</span>
+          <span class="good" data-i18n="comp.pruning.24gb">MMLU 72%</span>
+          <span class="bad" data-i18n="comp.quant.24gb">MMLU ~55–60%</span>
         </div>
         <div class="comp-row">
-          <span>Remaining precision</span>
-          <span class="good">Full Q4 precision</span>
-          <span class="bad">2-bit precision</span>
+          <span data-i18n="comp.precision">Remaining precision</span>
+          <span class="good" data-i18n="comp.pruning.precision">Full Q4 precision</span>
+          <span class="bad" data-i18n="comp.quant.precision">2-bit precision</span>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Vision -->
+<section id="vision" class="vision">
+  <div class="container">
+    <h2 data-i18n="vision.title">Where This Is Going</h2>
+    <p class="section-desc" data-i18n="vision.desc">Expert pruning is just the beginning. Here's what becomes possible.</p>
+    <div class="tech-grid">
+
+      <div class="tech-card">
+        <div class="tech-icon">&#x1F4BB;</div>
+        <h3 data-i18n="vision.hardware">Consumer Hardware</h3>
+        <p data-i18n="vision.hardware.desc">Frontier-class MoE models on a laptop with 24GB RAM — no $10K+ server GPU required. Democratizing access to the most capable AI.</p>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">&#x1F50B;</div>
+        <h3 data-i18n="vision.energy">Lower Energy Cost</h3>
+        <p data-i18n="vision.energy.desc">Fewer experts means fewer FLOPs per token. Data centers could serve the same quality at half the compute — significant power savings at scale.</p>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">&#x1F680;</div>
+        <h3 data-i18n="vision.rl">Post-Pruning RL</h3>
+        <p data-i18n="vision.rl.desc">Pruned models create headroom for targeted reinforcement learning. Same size, potentially better performance — quality amplification, not just preservation.</p>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">&#x1F310;</div>
+        <h3 data-i18n="vision.edge">Edge Deployment</h3>
+        <p data-i18n="vision.edge.desc">MoE models become viable for on-device inference. Private, fast, and offline — bringing expert-level AI to phones and embedded systems.</p>
+      </div>
+
     </div>
   </div>
 </section>
@@ -212,16 +266,17 @@
 <!-- CTA -->
 <section class="cta">
   <div class="container">
-    <h2>Support Open-Source AI Compression</h2>
-    <p>Your support helps us develop and release more free compressed models.</p>
-    <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn btn-primary btn-large">Support on Ko-fi</a>
+    <h2 data-i18n="cta.title">Built on a MacBook. Funded by You.</h2>
+    <p class="cta-detail" data-i18n="cta.detail">This entire research — 22 phases, 4 models, 50+ experiments — was conducted on a single MacBook Pro (M4 Pro, 24GB RAM, 512GB SSD). No data center. No corporate funding.</p>
+    <p class="cta-detail" data-i18n="cta.funding">Your support directly funds GPU access to test on larger models, cloud compute for comprehensive benchmarking, and time to continue open-source research.</p>
+    <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn btn-primary btn-large" data-i18n="cta.button">Support on Ko-fi</a>
   </div>
 </section>
 
 <!-- Footer -->
 <footer>
   <div class="container footer-inner">
-    <span class="footer-name">GOBA-AI-Labs</span>
+    <span class="footer-name" data-i18n="footer.name">GOBA-AI-Labs</span>
     <div class="footer-links">
       <a href="https://huggingface.co/GOBA-AI-Labs" target="_blank">HuggingFace</a>
       <a href="https://ko-fi.com/gobaailabs" target="_blank">Ko-fi</a>
@@ -229,5 +284,6 @@
   </div>
 </footer>
 
+<script src="i18n.js"></script>
 </body>
 </html>

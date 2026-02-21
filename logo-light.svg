@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40">
+  <g fill="#1A1A1A">
+    <!-- G - geometric -->
+    <path d="M2 8h18v4H6v10h10v-4h-6v-4h10v12H2z"/>
+    <!-- O - geometric -->
+    <path d="M24 8h18v22H24zm4 4v14h10V12z"/>
+    <!-- B - geometric -->
+    <path d="M46 8h16v4H50v4h10v4H50v6h12v4H46z"/>
+    <!-- A - geometric -->
+    <path d="M66 8h18v22h-4V20H70v10h-4zm4 4v4h10v-4z"/>
+  </g>
+  <g fill="#6B6660">
+    <text x="92" y="26" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="500" letter-spacing="0.12em">AI LABS</text>
+  </g>
+</svg>
