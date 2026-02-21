@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GOBA-AI-Labs — Making Large AI Accessible</title>
+  <meta name="description" content="Open-source MoE compression. Run 400B+ parameter AI models on consumer hardware with 24GB RAM.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo">GOBA-AI-Labs</a>
+    <div class="nav-links">
+      <a href="#models">Models</a>
+      <a href="#technology">Technology</a>
+      <a href="https://huggingface.co/GOBA-AI-Labs" target="_blank">HuggingFace</a>
+      <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn-nav">Support Us</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <h1>Run 400B+ AI models<br>on your laptop.</h1>
+    <p class="subtitle">
+      We compress Mixture-of-Experts models by 50-90% while preserving quality.
+      No retraining. No quality loss. Just fewer experts.
+    </p>
+    <div class="hero-actions">
+      <a href="#models" class="btn btn-primary">Browse Models</a>
+      <a href="https://huggingface.co/GOBA-AI-Labs" target="_blank" class="btn btn-secondary">HuggingFace</a>
+    </div>
+    <div class="hero-stat">
+      <div class="stat">
+        <span class="stat-value">240 GB</span>
+        <span class="stat-arrow">&rarr;</span>
+        <span class="stat-value highlight">24 GB</span>
+      </div>
+      <span class="stat-label">Qwen3.5-397B compressed to fit 24GB RAM</span>
+    </div>
+  </div>
+</section>
+
+<!-- Models -->
+<section id="models" class="models">
+  <div class="container">
+    <h2>PrunedHub Models</h2>
+    <p class="section-desc">Drop-in replacements for llama.cpp. Download and run.</p>
+    <div class="model-grid">
+
+      <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-28x" target="_blank" class="model-card">
+        <div class="model-badge lossless">Lossless</div>
+        <h3>GPT-OSS-20B-28x</h3>
+        <p class="model-base">openai/gpt-oss-20b</p>
+        <div class="model-stats">
+          <div class="model-stat-item">
+            <span class="label">Size</span>
+            <span class="value">10.4 GB</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">MMLU</span>
+            <span class="value">78%</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">Reduction</span>
+            <span class="value">-10.9%</span>
+          </div>
+        </div>
+        <p class="model-desc">Zero quality degradation. 12.5% of experts removed. Fits 16GB RAM with room for KV cache.</p>
+      </a>
+
+      <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-Coder-Next-50pct" target="_blank" class="model-card">
+        <div class="model-badge extreme">50% Pruned</div>
+        <h3>Qwen3-Coder-Next-50pct</h3>
+        <p class="model-base">Qwen/Qwen3-Coder-Next</p>
+        <div class="model-stats">
+          <div class="model-stat-item">
+            <span class="label">Size</span>
+            <span class="value">24.4 GB</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">MMLU</span>
+            <span class="value">72%</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">Reduction</span>
+            <span class="value">-45.8%</span>
+          </div>
+        </div>
+        <p class="model-desc">80B model compressed to 24GB. Outperforms Q2 quantization at similar size.</p>
+      </a>
+
+      <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-30B-A3B-JP-80pct" target="_blank" class="model-card">
+        <div class="model-badge ja">Japanese</div>
+        <h3>Qwen3-30B-A3B-JP-80pct</h3>
+        <p class="model-base">Qwen/Qwen3-30B-A3B</p>
+        <div class="model-stats">
+          <div class="model-stat-item">
+            <span class="label">Size</span>
+            <span class="value">14.0 GB</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">MMLU</span>
+            <span class="value">79%</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">Reduction</span>
+            <span class="value">-19.1%</span>
+          </div>
+        </div>
+        <p class="model-desc">Language-aware pruning preserves Japanese quality. Thinking-ON: MMLU 79%, JA 90%.</p>
+      </a>
+
+      <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-27x-Zerobias" target="_blank" class="model-card">
+        <div class="model-badge experimental">Experimental</div>
+        <h3>GPT-OSS-20B-27x-Zerobias</h3>
+        <p class="model-base">openai/gpt-oss-20b</p>
+        <div class="model-stats">
+          <div class="model-stat-item">
+            <span class="label">Size</span>
+            <span class="value">~9.4 GB</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">MMLU</span>
+            <span class="value">77%</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">Reduction</span>
+            <span class="value">-19.5%</span>
+          </div>
+        </div>
+        <p class="model-desc">Router optimization recovers quality at the pruning cliff. -1pp with 15.6% fewer experts.</p>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<!-- Technology -->
+<section id="technology" class="technology">
+  <div class="container">
+    <h2>How It Works</h2>
+    <p class="section-desc">Expert pruning, not aggressive quantization.</p>
+    <div class="tech-grid">
+
+      <div class="tech-card">
+        <div class="tech-icon">&#x1F50D;</div>
+        <h3>Calibration-Based Scoring</h3>
+        <p>Expert importance measured through actual inference on diverse workloads. Significantly more accurate than static weight analysis.</p>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">&#x1F4CA;</div>
+        <h3>Layer-Adaptive Allocation</h3>
+        <p>Each layer retains a dynamically determined number of experts. Some layers are more sensitive to pruning — adaptive allocation preserves quality where it matters.</p>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">&#x1F30F;</div>
+        <h3>Language-Aware Optimization</h3>
+        <p>Automatic detection and protection of language-specialized experts. Japanese, Chinese, and other language capabilities preserved during compression.</p>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">&#x26A1;</div>
+        <h3>Zerobias Router Optimization</h3>
+        <p>Post-pruning router bias correction extends the lossless compression frontier. Zero cost, no retraining required.</p>
+      </div>
+
+    </div>
+
+    <div class="comparison">
+      <h3>Expert Pruning vs Quantization</h3>
+      <div class="comparison-table">
+        <div class="comp-row comp-header">
+          <span></span>
+          <span>Expert Pruning</span>
+          <span>Q2 Quantization</span>
+        </div>
+        <div class="comp-row">
+          <span>Approach</span>
+          <span>Remove redundant experts entirely</span>
+          <span>Reduce precision of all weights</span>
+        </div>
+        <div class="comp-row">
+          <span>Quality impact</span>
+          <span class="good">Targeted, minimal</span>
+          <span class="bad">Uniform degradation</span>
+        </div>
+        <div class="comp-row">
+          <span>~24 GB model quality</span>
+          <span class="good">MMLU 72%</span>
+          <span class="bad">MMLU ~55-60%</span>
+        </div>
+        <div class="comp-row">
+          <span>Remaining precision</span>
+          <span class="good">Full Q4 precision</span>
+          <span class="bad">2-bit precision</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="container">
+    <h2>Support Open-Source AI Compression</h2>
+    <p>Your support helps us develop and release more free compressed models.</p>
+    <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn btn-primary btn-large">Support on Ko-fi</a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="container footer-inner">
+    <span class="footer-name">GOBA-AI-Labs</span>
+    <div class="footer-links">
+      <a href="https://huggingface.co/GOBA-AI-Labs" target="_blank">HuggingFace</a>
+      <a href="https://ko-fi.com/gobaailabs" target="_blank">Ko-fi</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
