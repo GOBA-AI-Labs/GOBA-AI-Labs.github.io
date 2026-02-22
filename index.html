@@ -22,6 +22,7 @@
     <div class="nav-right">
       <div class="nav-links">
         <a href="#models" data-i18n="nav.models">Models</a>
+        <a href="#tools" data-i18n="nav.tools">Tools</a>
         <a href="#technology" data-i18n="nav.technology">Technology</a>
         <a href="https://huggingface.co/goba-ai-labs" target="_blank" data-i18n="nav.huggingface">HuggingFace</a>
         <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn-nav" data-i18n="nav.support">Support Us</a>
@@ -67,7 +68,7 @@
 <section id="models" class="models">
   <div class="container">
     <h2 data-i18n="models.title">PrunedHub Models</h2>
-    <p class="section-desc" data-i18n="models.desc">Drop-in replacements for llama.cpp. Download and run.</p>
+    <p class="section-desc" data-i18n="models.desc">Pruned MoE models ready to run. GPT-OSS models work with llama.cpp; Qwen3 models require moe-stream.</p>
     <div class="model-grid">
 
       <a href="https://huggingface.co/goba-ai-labs/PrunedHub-GPT-OSS-20B-28x" target="_blank" class="model-card">
@@ -159,6 +160,33 @@
       </a>
 
     </div>
+  </div>
+</section>
+
+<!-- Tools -->
+<section id="tools" class="tools">
+  <div class="container">
+    <h2 data-i18n="tools.title">Inference Tools</h2>
+    <p class="section-desc" data-i18n="tools.desc">Run pruned MoE models on consumer hardware.</p>
+    <a href="https://github.com/GOBA-AI-Labs/moe-stream" target="_blank" class="tool-card">
+      <div class="tool-header">
+        <h3>moe-stream</h3>
+        <span class="tool-lang">Rust</span>
+      </div>
+      <p class="tool-tagline" data-i18n="tools.moestream.tagline">SSD-streaming MoE inference engine for Apple Silicon &amp; Linux</p>
+      <div class="tool-features">
+        <div class="tool-feature" data-i18n="tools.moestream.ssd">80B models with 4GB RAM via NVMe SSD streaming</div>
+        <div class="tool-feature" data-i18n="tools.moestream.adaptive">Layer-adaptive pruning support (experts_per_layer)</div>
+        <div class="tool-feature" data-i18n="tools.moestream.speed">Q4 quantized matmul &mdash; +79% speedup</div>
+        <div class="tool-feature" data-i18n="tools.moestream.metal">Metal GPU + CPU hybrid inference</div>
+      </div>
+      <div class="tool-stats">
+        <span>~55 tok/s GPU-resident</span>
+        <span>~2 tok/s SSD streaming</span>
+        <span>MIT / Apache-2.0</span>
+      </div>
+      <span class="tool-cta" data-i18n="tools.moestream.github">View on GitHub</span>
+    </a>
   </div>
 </section>
 
@@ -278,6 +306,7 @@
   <div class="container footer-inner">
     <span class="footer-name" data-i18n="footer.name">GOBA-AI-Labs</span>
     <div class="footer-links">
+      <a href="https://github.com/GOBA-AI-Labs" target="_blank">GitHub</a>
       <a href="https://huggingface.co/goba-ai-labs" target="_blank">HuggingFace</a>
       <a href="https://ko-fi.com/gobaailabs" target="_blank">Ko-fi</a>
     </div>
