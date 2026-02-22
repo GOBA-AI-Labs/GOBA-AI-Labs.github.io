@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>特定商取引法に基づく表記 — GOBA-AI-Labs</title>
+  <link rel="icon" href="../favicon.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0C0C0E; --bg-surface: #161618; --text: #F0EDE8;
+      --text-muted: #8A8680; --text-dim: #5C5955;
+      --accent: #C4A265; --border: #2A2926;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #FAF8F5; --bg-surface: #F0EDE8; --text: #1A1A1A;
+        --text-muted: #6B6660; --text-dim: #9C9690;
+        --accent: #9C7D3C; --border: #D8D4CE;
+      }
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      color: var(--text); background: var(--bg);
+      line-height: 1.8; -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 640px; margin: 0 auto; padding: 120px 24px 80px; }
+    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 32px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 32px; }
+    th, td {
+      padding: 14px 16px; text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem; vertical-align: top;
+    }
+    th {
+      width: 160px; color: var(--text-muted); font-weight: 600;
+      white-space: nowrap;
+    }
+    .note { font-size: 0.82rem; color: var(--text-dim); margin-top: 24px; }
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: color-mix(in srgb, var(--bg) 90%, transparent);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: 640px; margin: 0 auto; padding: 14px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.85rem;
+    }
+    nav a { color: var(--text-muted); }
+    nav a:hover { color: var(--text); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a>
+    <a href="https://goba-ai-labs.github.io">Back to Home</a>
+  </div>
+</nav>
+
+<div class="container">
+  <h1>特定商取引法に基づく表記</h1>
+
+  <table>
+    <tr><th>事業者名</th><td>GOBA-AI-Labs</td></tr>
+    <tr><th>運営責任者</th><td>GOBA-AI-Labs</td></tr>
+    <tr><th>所在地</th><td>請求があった場合に遅滞なく開示いたします</td></tr>
+    <tr><th>連絡先</th><td><a href="https://github.com/GOBA-AI-Labs">GitHub: GOBA-AI-Labs</a></td></tr>
+    <tr><th>販売価格</th><td>各支援ページに記載の金額（任意の寄付）</td></tr>
+    <tr><th>支払方法</th><td>クレジットカード（Stripe 経由）</td></tr>
+    <tr><th>支払時期</th><td>支援時に即時決済</td></tr>
+    <tr><th>返品・返金</th><td>寄付のため、原則として返金は行いません</td></tr>
+    <tr><th>提供時期</th><td>寄付に対する対価の提供はありません</td></tr>
+  </table>
+
+  <p class="note">
+    本プロジェクトの支援金は、MoE モデル圧縮研究およびオープンソースツールの開発・維持に使用されます。
+  </p>
+</div>
+
+</body>
+</html>
