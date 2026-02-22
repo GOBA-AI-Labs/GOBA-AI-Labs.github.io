@@ -68,6 +68,13 @@
     }
     .paper-nav a { color: var(--text-muted); }
     .paper-nav a:hover { color: var(--text); text-decoration: none; }
+    .lang-links { display: flex; gap: 2px; margin-left: 12px; border-left: 1px solid var(--border); padding-left: 12px; }
+    .lang-links a {
+      font-size: 0.72rem; font-weight: 600; padding: 3px 6px; border-radius: 4px;
+      letter-spacing: 0.04em; color: var(--text-dim);
+    }
+    .lang-links a:hover { color: var(--text-muted); background: var(--bg-surface); }
+    .lang-links a.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
     /* Title block */
     .title-block { text-align: center; padding: 80px 0 40px; }
@@ -171,9 +178,16 @@
 <nav class="paper-nav">
   <div class="paper-nav-inner">
     <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a>
-    <div style="display:flex;gap:16px;">
+    <div style="display:flex;gap:16px;align-items:center;">
       <a href="https://huggingface.co/GOBA-AI-Labs">Models</a>
       <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>
+      <div class="lang-links">
+        <a href="/paper/" class="active">EN</a>
+        <a href="/paper/ja/">JA</a>
+        <a href="/paper/zh-cn/">简</a>
+        <a href="/paper/zh-tw/">繁</a>
+        <a href="/paper/ko/">KO</a>
+      </div>
     </div>
   </div>
 </nav>

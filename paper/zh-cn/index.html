@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>基于校准的混合专家语言模型专家剪枝 — GOBA-AI-Labs</title>
+  <meta name="description" content="专家剪枝通过移除冗余的MoE专家实现模型压缩，同时保持质量。该方法已在3个模型系列上验证，在消费级硬件上实现了无损到近无损的压缩。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../../favicon.png" type="image/png">
+  <style>
+    :root {
+      --bg: #FAFAF8;
+      --bg-surface: #F0EEEA;
+      --text: #1A1A1A;
+      --text-muted: #555;
+      --text-dim: #888;
+      --accent: #9C7D3C;
+      --accent-hover: #B08E48;
+      --border: #D8D4CE;
+      --good: #15803d;
+      --bad: #dc2626;
+      --code-bg: #F4F2EE;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0C0C0E;
+        --bg-surface: #161618;
+        --text: #F0EDE8;
+        --text-muted: #8A8680;
+        --text-dim: #5C5955;
+        --accent: #C4A265;
+        --accent-hover: #D4B478;
+        --border: #2A2926;
+        --good: #6ee7b7;
+        --bad: #fca5a5;
+        --code-bg: #1C1C1F;
+      }
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.8;
+      -webkit-font-smoothing: antialiased;
+      font-size: 17px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .paper { max-width: 760px; margin: 0 auto; padding: 60px 24px 100px; }
+
+    /* Header */
+    .paper-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: color-mix(in srgb, var(--bg) 90%, transparent);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      font-family: 'Inter', sans-serif;
+    }
+    .paper-nav-inner {
+      max-width: 760px; margin: 0 auto; padding: 12px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.85rem;
+    }
+    .paper-nav a { color: var(--text-muted); }
+    .paper-nav a:hover { color: var(--text); text-decoration: none; }
+    .lang-links { display: flex; gap: 2px; margin-left: 12px; border-left: 1px solid var(--border); padding-left: 12px; }
+    .lang-links a {
+      font-size: 0.72rem; font-weight: 600; padding: 3px 6px; border-radius: 4px;
+      letter-spacing: 0.04em; color: var(--text-dim);
+    }
+    .lang-links a:hover { color: var(--text-muted); background: var(--bg-surface); }
+    .lang-links a.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+    /* Title block */
+    .title-block { text-align: center; padding: 80px 0 40px; }
+    .title-block h1 {
+      font-size: 1.9rem; font-weight: 700; line-height: 1.3;
+      letter-spacing: -0.01em; margin-bottom: 16px;
+    }
+    .authors { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 6px; }
+    .affiliation { color: var(--text-dim); font-size: 0.85rem; font-family: 'Inter', sans-serif; }
+    .paper-date { color: var(--text-dim); font-size: 0.85rem; margin-top: 8px; font-family: 'Inter', sans-serif; }
+
+    /* Abstract */
+    .abstract {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 24px 28px; margin: 32px 0 48px;
+    }
+    .abstract-label {
+      font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .abstract p { font-size: 0.95rem; line-height: 1.7; }
+
+    /* Sections */
+    h2 {
+      font-size: 1.4rem; font-weight: 700; margin: 48px 0 16px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 1.15rem; font-weight: 600; margin: 32px 0 12px; }
+    h4 { font-size: 1rem; font-weight: 600; margin: 24px 0 8px; }
+    p { margin-bottom: 14px; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-family: 'Inter', sans-serif; font-size: 0.85rem;
+    }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th {
+      font-weight: 600; font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-muted);
+      background: var(--bg-surface);
+    }
+    td { color: var(--text); }
+    .good { color: var(--good); font-weight: 600; }
+    .bad { color: var(--bad); font-weight: 600; }
+    .highlight-row { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    caption {
+      text-align: left; font-size: 0.85rem; color: var(--text-muted);
+      font-family: 'Inter', sans-serif; margin-bottom: 8px; font-style: italic;
+    }
+
+    /* Lists */
+    ul, ol { margin: 8px 0 16px 24px; }
+    li { margin-bottom: 6px; }
+
+    /* Code / technical */
+    code {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.88em;
+      background: var(--code-bg); padding: 2px 6px; border-radius: 4px;
+    }
+
+    /* Figures */
+    .figure {
+      margin: 28px 0; text-align: center;
+    }
+    .figure-caption {
+      font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;
+      font-family: 'Inter', sans-serif; font-style: italic;
+    }
+
+    /* Key finding boxes */
+    .finding {
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px; margin: 20px 0;
+      background: color-mix(in srgb, var(--accent) 5%, transparent);
+      font-size: 0.95rem;
+    }
+    .finding strong { color: var(--accent); }
+
+    /* Footer */
+    .paper-footer {
+      margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border);
+      font-family: 'Inter', sans-serif; font-size: 0.82rem; color: var(--text-dim);
+      text-align: center;
+    }
+    .paper-footer a { color: var(--text-muted); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      body { font-size: 16px; }
+      .title-block h1 { font-size: 1.5rem; }
+      .paper { padding: 40px 16px 60px; }
+      th, td { padding: 8px 10px; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="paper-nav">
+  <div class="paper-nav-inner">
+    <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <a href="https://huggingface.co/GOBA-AI-Labs">Models</a>
+      <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>
+      <div class="lang-links">
+        <a href="/paper/">EN</a>
+        <a href="/paper/ja/">JA</a>
+        <a href="/paper/zh-cn/" class="active">简</a>
+        <a href="/paper/zh-tw/">繁</a>
+        <a href="/paper/ko/">KO</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<article class="paper">
+
+<div class="title-block">
+  <h1>基于校准的混合专家语言模型专家剪枝</h1>
+  <p class="authors">GOBA-AI-Labs</p>
+  <p class="affiliation">独立研究</p>
+  <p class="paper-date">2026年2月</p>
+</div>
+
+<div class="abstract">
+  <div class="abstract-label">摘要</div>
+  <p>
+    我们提出了一种通过在推理过程中测量专家重要性来选择性移除专家，从而压缩混合专家（MoE）语言模型的框架。与基于静态模型参数估计重要性的权重方法不同，我们的基于校准的方法通过在多样化工作负载上进行实际推理来评估专家，从而产生显著更准确的重要性排序。我们引入了三种互补技术：<em>层自适应专家分配</em>，允许每层根据其敏感性保留不同数量的专家；<em>语言感知专家保护</em>，在压缩过程中检测并保留语言专门化的专家；以及<em>Zerobias路由器优化</em>，一种零成本的后处理步骤，通过中和过时的路由器偏置在剪枝悬崖处恢复质量。我们在三个模型系列上验证了该方法：GPT-OSS-20B（无损压缩，MMLU 78%保持不变，10.4 GB）、Qwen3-30B-A3B（语言感知剪枝，启用思考时MMLU 79%，14 GB）和Qwen3-Coder-Next 80B（50%剪枝，MMLU 72%，24.4 GB）。在所有模型中，我们发现了一种普遍的剪枝悬崖现象：质量在狭窄的剪枝范围内从保持急剧过渡到崩溃，并证明专家重要性分布的基尼系数可以预测悬崖的陡峭程度。我们的框架无需GPU训练，无需梯度计算，在消费级硬件上一小时内即可完成。
+  </p>
+</div>
+
+<!-- ================================================================ -->
+<h2>1. 引言</h2>
+
+<p>
+  混合专家（MoE）语言模型通过在每个token上仅激活其总参数的一小部分来实现前沿水平的质量。近期模型如DeepSeek-V3（总参数671B，激活参数37B）、Qwen3-Coder-Next（总参数80B，每个token约3B激活）和GPT-OSS-20B（总参数21B，激活参数3.6B）表明，MoE架构可以在推理成本的一小部分下达到或超越稠密模型。然而，其总参数量&mdash;&mdash;在量化后通常为数十到数百GB&mdash;&mdash;超出了消费级硬件的内存容量。
+</p>
+
+<p>
+  现有的压缩技术解决了大小问题，但未利用MoE模型所呈现的结构性机会。训练后量化（GPTQ、AWQ、GGUF Q4）在所有参数上均匀降低精度，将模型视为一个整体。知识蒸馏可以产生较小的学生模型，但需要昂贵的重新训练。这两种方法都没有利用MoE模型区别于稠密模型的根本特性：存在离散的、独立参数化的专家子网络，可以根据其功能贡献进行选择性保留或移除。
+</p>
+
+<p>
+  我们提出<em>基于校准的专家剪枝</em>：通过在代表性工作负载上进行实际推理来测量专家重要性，然后从每层中移除最不重要的专家。该方法直接在量化的GGUF模型文件上操作，无需反量化、无需梯度计算、无需重新训练。输出是一个专家数量更少的有效GGUF文件，可立即用于推理。
+</p>
+
+<p>我们的贡献如下：</p>
+<ol>
+  <li><strong>基于校准的重要性评分</strong>，显著优于基于权重的指标（MMLU +15pp，日语任务+20pp）。</li>
+  <li><strong>层自适应专家分配</strong>，允许每层根据其测量的重要性差距动态确定保留数量，从而保持质量。</li>
+  <li><strong>语言感知专家保护</strong>，检测并保留语言专门化的专家，实现面向特定市场的压缩。</li>
+  <li><strong>Zerobias路由器优化</strong>，通过中和过时的路由器偏置在剪枝悬崖处恢复质量，以零成本扩展无损压缩前沿。</li>
+  <li><strong>跨模型验证</strong>，在三种架构（每层32、128和512个专家）上验证了剪枝悬崖的普遍性和可预测性。</li>
+</ol>
+
+<!-- ================================================================ -->
+<h2>2. 方法</h2>
+
+<h3>2.1 概述</h3>
+
+<p>
+  我们的剪枝流程分为四个阶段：(1) 校准数据收集，(2) 重要性评分，(3) 基于层自适应分配的剪枝计划生成，(4) GGUF文件剪枝。该流程以量化的GGUF模型和一组校准提示词作为输入，生成每层具有可变专家数量的剪枝GGUF文件。
+</p>
+
+<h3>2.2 基于校准的重要性评分</h3>
+
+<p>
+  每个校准提示词通过完整模型运行，对于每一层和每个专家，我们记录路由器选择该专家的频率以及选择时的偏好强度。重要性评分综合这两个信号：一个既被频繁激活又被强烈偏好的专家获得高分，而一个很少使用或门控较弱的专家获得低分。
+</p>
+
+<p>
+  校准集应涵盖剪枝模型预期处理的工作负载。对于通用压缩，我们使用涵盖代码生成、数学推理、事实回忆和自然语言问答的提示词。对于特定语言的压缩，我们添加目标语言的提示词。
+</p>
+
+<div class="finding">
+  <strong>关键发现：</strong>基于校准的评分显著优于基于权重的评分。在Qwen3-30B-A3B保留80%专家时，校准方法达到MMLU 74%，而基于权重的评分仅为60%（差距+15pp）。在日语评估中，校准方法达到85%，而基于权重的方法为65%（差距+20pp）。基于权重的评分产生了根本不同的专家保留集，无法为推理质量进行优化。
+</div>
+
+<h3>2.3 层自适应专家分配</h3>
+
+<p>
+  MoE模型中并非所有层对专家移除具有同等敏感性。某些层具有高度专门化的专家，移除其中任何一个都会导致显著的质量损失，而其他层具有冗余专家，可以安全移除。我们的层自适应方法计算每层的重要性分布，并根据保留专家和被剪枝专家之间测量的重要性差距为每层分配不同的保留数量。
+</p>
+
+<p>
+  这产生的模型中，某些层保留了几乎所有专家，而其他层则有大量专家被移除。由此产生的GGUF文件具有可变的<code>experts_per_layer</code>元数据字段，标准推理引擎（llama.cpp）目前不支持该字段。我们开发了<a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>，一个开源的Rust推理引擎，用于处理这些可变专家模型。具有统一专家数量的模型（例如，GPT-OSS-20B从32个专家剪枝到每层28个）仍与llama.cpp兼容。
+</p>
+
+<h3>2.4 语言感知专家保护</h3>
+
+<p>
+  具有足够专家数量的MoE模型在训练过程中会发展出语言专门化的专家。在Qwen3-30B-A3B（每层128个专家）中，我们通过多语言校准提示词的差异频率分析识别出30个日语专家和15个英语专家。相比之下，GPT-OSS-20B（每层32个专家）显示出近乎均匀的路由（基尼系数=0.041），没有语言专门化，而GLM-5（每层256个专家）则表现出更强的专门化（15个日语专家，基尼系数=0.444）。
+</p>
+
+<div class="finding">
+  <strong>专家数量决定语言专门化程度：</strong>32个专家 &rarr; 0个语言专家（基尼系数0.041）；128个专家 &rarr; 30个专家（基尼系数0.233）；256个专家 &rarr; 15个专家（基尼系数0.444）。专家数量越多的模型发展出越清晰的功能专门化，包括语言特定的路由。
+</div>
+
+<p>
+  对于面向特定市场的压缩（例如日本市场），我们保护检测到的语言专家免受剪枝，无论其全局重要性评分如何。这确保即使在进行激进压缩时，语言能力也得以保留。
+</p>
+
+<h3>2.5 Zerobias路由器优化</h3>
+
+<p>
+  MoE路由器包含在预训练期间使用完整专家集校准的学习偏置项。剪枝后，这些偏置可能会变得失准：之前将token引导到现已不存在的专家的偏置会产生路由真空，而剩余专家的偏置不再反映其在缩减集中的相对重要性。
+</p>
+
+<p>
+  Zerobias将所有路由器偏置置为零，迫使路由器仅依赖于与输入相关的路由权重。这是一个零成本的后处理步骤&mdash;&mdash;无需训练，只需修改GGUF文件中的偏置张量即可完成。
+</p>
+
+<div class="finding">
+  <strong>Zerobias具有悬崖特异性：</strong>在剪枝悬崖处（GPT-OSS-20B 27/32个专家），Zerobias恢复了+9pp MMLU（68% &rarr; 77%），几乎达到安全操作点（28/32 = 78%）。然而，在校准良好的28/32点，Zerobias反而有害（&minus;14pp），因为原始偏置仍编码了有用的路由信息。Zerobias仅在原始偏置因剪枝超出模型冗余裕度而失准时才有效。
+</div>
+
+<!-- ================================================================ -->
+<h2>3. 实验结果</h2>
+
+<h3>3.1 GPT-OSS-20B：无损压缩</h3>
+
+<p>
+  GPT-OSS-20B是一个参数量为21B的MoE模型，每层32个专家，采用top-2 sigmoid路由和MXFP4格式。由于该模型专家数量太少，不适合进行有意义的层自适应分配，因此使用统一剪枝（从每层移除相同数量的专家）。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表1：GPT-OSS-20B剪枝结果（Q4_K_M，MMLU 100题 0-shot，GSM8K 50题 0-shot）</caption>
+  <tr><th>配置</th><th>大小</th><th>专家数/层</th><th>MMLU</th><th>GSM8K</th><th>HumanEval</th></tr>
+  <tr><td>原始</td><td>11.67 GB</td><td>32</td><td>78%</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr class="highlight-row"><td><strong>剪枝 28/32</strong></td><td><strong>10.40 GB</strong></td><td><strong>28</strong></td><td class="good"><strong>78%</strong></td><td class="good"><strong>92%</strong></td><td class="good"><strong>78%</strong></td></tr>
+  <tr><td>剪枝 27/32</td><td>~10.1 GB</td><td>27</td><td class="bad">68%</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr class="highlight-row"><td><strong>27/32 + Zerobias</strong></td><td><strong>~9.4 GB</strong></td><td><strong>27</strong></td><td class="good"><strong>77%</strong></td><td><strong>84%</strong></td><td>&mdash;</td></tr>
+  <tr><td>剪枝 26/32</td><td>~9.7 GB</td><td>26</td><td>69%</td><td>&mdash;</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  28/32模型实现了<strong>无损压缩</strong>：MMLU 78%（与原始模型相同）、GSM8K 92%（46/50）和HumanEval 78%（39/50）。文件大小从11.67 GB缩减至10.40 GB（&minus;10.9%），幅度虽然有限，但完全不损失质量。
+</p>
+
+<p>
+  在27/32个专家时，出现了明显的<strong>剪枝悬崖</strong>：每层仅移除一个专家，MMLU就从78%骤降至68%（&minus;10pp）。应用Zerobias可恢复大部分损失（77%，与原始模型仅差&minus;1pp），产生一个9.4 GB的近无损模型。值得注意的是，26/32不使用Zerobias时得分为69%&mdash;&mdash;高于27/32不使用Zerobias时的68%&mdash;&mdash;这揭示了悬崖是一个集中在28&rarr;27过渡处的阶跃函数。
+</p>
+
+<h3>3.2 Qwen3-30B-A3B：语言感知剪枝</h3>
+
+<p>
+  Qwen3-30B-A3B是一个参数量为30B的MoE模型，48层，每层128个专家。由于专家数量较多，层自适应分配和语言感知保护变得有效。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表2：Qwen3-30B-A3B剪枝曲线（Q4_K_M，MMLU 100题）</caption>
+  <tr><th>配置</th><th>大小</th><th>保留率</th><th>MMLU</th><th>备注</th></tr>
+  <tr><td>原始</td><td>17.3 GB</td><td>100%</td><td>77%</td><td>&mdash;</td></tr>
+  <tr><td>剪枝 90%</td><td>15.6 GB</td><td>90%</td><td>73%</td><td>&minus;4pp</td></tr>
+  <tr class="highlight-row"><td><strong>剪枝 80%（日语感知）</strong></td><td><strong>14.0 GB</strong></td><td><strong>80%</strong></td><td class="good"><strong>79%（启用思考）</strong></td><td><strong>日语 90%</strong></td></tr>
+  <tr><td>剪枝 70%</td><td>12.3 GB</td><td>70%</td><td class="bad">51%</td><td>悬崖（&minus;26pp）</td></tr>
+  <tr><td>剪枝 60%</td><td>&mdash;</td><td>60%</td><td class="bad">崩溃</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  保留80%的模型（14.0 GB）通过语言感知日语专家保护，达到了MMLU 79%（启用思考）、GSM8K 92%和日语质量90%。这表明语言感知剪枝可以<strong>同时实现压缩和多语言质量保持</strong>。
+</p>
+
+<p>
+  在80%和70%保留率之间出现了明显的悬崖：MMLU从72%骤降至51%（&minus;21pp），进一步剪枝导致完全崩溃。这确立了80%保留率（14 GB）作为该模型的实际下限。
+</p>
+
+<h4>校准评分与基于权重评分的对比</h4>
+
+<div class="table-wrap">
+<table>
+  <caption>表3：重要性评分方法对比（30B-A3B，80%保留率）</caption>
+  <tr><th>方法</th><th>MMLU</th><th>日语</th><th>GSM8K</th></tr>
+  <tr class="highlight-row"><td><strong>基于校准 + 日语保护</strong></td><td class="good"><strong>74%</strong></td><td class="good"><strong>85%</strong></td><td class="good"><strong>92%</strong></td></tr>
+  <tr><td>基于权重 + 日语保护</td><td class="bad">60%</td><td class="bad">65%</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  在相同保留率下，基于校准的评分在MMLU上超过基于权重的评分+14pp，在日语评估上超过+20pp。两种方法产生了根本不同的专家保留集&mdash;&mdash;权重范数无法预测推理时的重要性。
+</p>
+
+<h3>3.3 Qwen3-Coder-Next 80B：深度剪枝</h3>
+
+<p>
+  Qwen3-Coder-Next是一个参数量为80B的MoE模型，48层，每层512个专家（每个token约3B激活）。大量的专家数量使得激进的层自适应剪枝成为可能。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表4：Qwen3-Coder-Next 80B剪枝（Q4_K_M，MMLU 100题）</caption>
+  <tr><th>配置</th><th>大小</th><th>保留率</th><th>MMLU</th><th>其他</th></tr>
+  <tr><td>原始 Q4</td><td>~48 GB</td><td>100%</td><td>77%</td><td>HumanEval 74%</td></tr>
+  <tr><td>v7（44%剪枝）</td><td>27.68 GB</td><td>56%</td><td>70%</td><td>HumanEval 72%, LCB Easy 83%</td></tr>
+  <tr class="highlight-row"><td><strong>50%剪枝</strong></td><td><strong>24.4 GB</strong></td><td><strong>50%</strong></td><td class="good"><strong>72%</strong></td><td>&mdash;</td></tr>
+  <tr><td>55%剪枝</td><td>~20 GB</td><td>45%</td><td class="bad">60%</td><td>悬崖（&minus;12pp）</td></tr>
+  <tr><td>65%剪枝</td><td>~17.9 GB</td><td>35%</td><td class="bad">随机</td><td>完全崩溃</td></tr>
+</table>
+</div>
+
+<p>
+  50%剪枝模型（24.4 GB）达到了MMLU 72%&mdash;&mdash;原始质量的93.5%，同时可放入24 GB消费级硬件内存中。这明显优于对同一模型进行Q2量化，后者会产生类似的文件大小（约25&ndash;28 GB），但由于所有权重的精度均匀损失，估计MMLU仅为55&ndash;60%。
+</p>
+
+<p>
+  在50%和45%保留率之间出现悬崖（&minus;12pp），35%保留率产生随机输出。50%保留率是该模型最深的可行压缩。
+</p>
+
+<h3>3.4 专家剪枝与量化的对比</h3>
+
+<div class="table-wrap">
+<table>
+  <caption>表5：相近大小下专家剪枝与激进量化的对比</caption>
+  <tr><th>方法</th><th>目标大小</th><th>手段</th><th>剩余精度</th><th>质量影响</th></tr>
+  <tr class="highlight-row"><td><strong>专家剪枝</strong></td><td>24.4 GB</td><td>移除50%专家</td><td class="good">完整Q4（4位）</td><td class="good">MMLU 72%</td></tr>
+  <tr><td>Q2量化</td><td>~25&ndash;28 GB</td><td>所有权重降至2位</td><td class="bad">2位</td><td class="bad">MMLU ~55&ndash;60%</td></tr>
+</table>
+</div>
+
+<p>
+  专家剪枝和量化是正交的压缩技术。专家剪枝移除整个专家子网络，同时保留剩余专家的完整量化精度。量化则在所有参数上均匀降低精度。在相同文件大小下，专家剪枝实现了显著更高的质量，因为保留的专家以原始精度运行，而激进量化则会降低每个权重的精度。
+</p>
+
+<p>
+  此外，专家剪枝可以在已量化的模型上直接应用（正如我们对Q4_K_M GGUF文件所做的那样），使两种技术可组合使用：先量化进行权重级压缩，再进行专家剪枝实现结构级压缩。
+</p>
+
+<!-- ================================================================ -->
+<h2>4. 跨模型发现</h2>
+
+<h3>4.1 普遍的剪枝悬崖</h3>
+
+<p>
+  所有三个模型系列都表现出明显的剪枝悬崖&mdash;&mdash;在一个狭窄的剪枝率范围内，质量从完全保持急剧过渡到完全崩溃。这不是渐进退化，而是一种相变。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表6：各模型系列的剪枝悬崖特征</caption>
+  <tr><th>模型</th><th>专家数/层</th><th>安全剪枝量</th><th>悬崖</th><th>基尼系数</th></tr>
+  <tr><td>GPT-OSS-20B</td><td>32</td><td>4个专家（约12.5%）</td><td>28 &rarr; 27（&minus;10pp）</td><td>0.041</td></tr>
+  <tr><td>Qwen3-30B-A3B</td><td>128</td><td>约26个专家（约20%）</td><td>80% &rarr; 70%（&minus;21pp）</td><td>0.233</td></tr>
+  <tr><td>Qwen3-80B</td><td>512</td><td>约256个专家（约50%）</td><td>50% &rarr; 45%（&minus;12pp）</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  一个统一的预测指标浮现出来：专家重要性分布的<strong>基尼系数</strong>可以预测悬崖的陡峭程度。基尼系数低的模型（重要性近乎均匀，例如GPT-OSS的0.041）表现出更陡峭的单专家悬崖，因为每个专家都贡献显著。基尼系数较高的模型（重要性更偏斜）表现出更渐进的退化，允许在悬崖前进行更深的剪枝。
+</p>
+
+<h3>4.2 质量退化顺序</h3>
+
+<p>
+  在所有剪枝实验中，我们观察到随着剪枝程度增加，能力退化呈现一致的顺序：
+</p>
+
+<ol>
+  <li><strong>代码生成</strong>（最脆弱）&mdash;&mdash;最先退化，在有效程序消失前先产生伪代码</li>
+  <li><strong>算术</strong>&mdash;&mdash;出现相变式错误（例如15+27=45）</li>
+  <li><strong>推理</strong>&mdash;&mdash;逻辑连贯性降低</li>
+  <li><strong>事实知识</strong>（最稳健）&mdash;&mdash;最后退化，分布在多个专家中</li>
+</ol>
+
+<p>
+  这一顺序对校准设计具有重要意义：确保校准集涵盖代码生成（最脆弱的能力）至关重要，因为仅通过代码评估才能发现仅问答测试无法揭示的故障模式。
+</p>
+
+<!-- ================================================================ -->
+<h2>5. 主要负面结果</h2>
+
+<p>
+  在22个研究阶段中，我们系统性地评估了大量未获成功的方法。我们总结了最具意义的负面结果，作为未来工作的边界条件。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表7：主要负面结果汇总</caption>
+  <tr><th>方法</th><th>结果</th><th>关键洞察</th></tr>
+  <tr>
+    <td>Gate L2范数剪枝（REAP）</td>
+    <td class="bad">50%时HumanEval 70%</td>
+    <td>静态权重指标失效；需要基于校准的评分</td>
+  </tr>
+  <tr>
+    <td>基于权重的重要性</td>
+    <td class="bad">MMLU 60%（校准74%）</td>
+    <td>权重范数无法预测推理时的重要性</td>
+  </tr>
+  <tr>
+    <td>统一剪枝比例</td>
+    <td class="bad">80B MMLU 64%</td>
+    <td>层自适应分配对质量至关重要</td>
+  </tr>
+  <tr>
+    <td>英语优化强制惩罚</td>
+    <td class="bad">MMLU 58%</td>
+    <td>语言专家也参与STEM推理</td>
+  </tr>
+  <tr>
+    <td>路由提升 + 剪枝</td>
+    <td class="bad">MMLU 56%（&minus;21pp）</td>
+    <td>提升和剪枝计划必须联合计算</td>
+  </tr>
+  <tr>
+    <td>专家适配器（KD）</td>
+    <td class="bad">层MSE &minus;15%，端到端 &minus;2pp</td>
+    <td>层级改善 &ne; 端到端改善</td>
+  </tr>
+  <tr>
+    <td>TinyLoRA（13参数）</td>
+    <td class="bad">悬崖处MMLU &minus;4pp</td>
+    <td>微参数调优不足以恢复MoE质量</td>
+  </tr>
+  <tr>
+    <td>GRPO路由器训练</td>
+    <td class="bad">MMLU 67%（&minus;5pp）</td>
+    <td>基于梯度的偏置优化不如Zerobias</td>
+  </tr>
+  <tr>
+    <td>Zerobias迭代剪枝</td>
+    <td class="bad">26/32: 65%（&minus;4pp）</td>
+    <td>Zerobias具有悬崖特异性；超出悬崖后有害</td>
+  </tr>
+  <tr>
+    <td>稠密SLM剪枝（4B）</td>
+    <td class="bad">FFN 25%：崩溃</td>
+    <td>稠密模型缺乏专家级冗余；MoE的压缩效率远优于稠密模型</td>
+  </tr>
+  <tr>
+    <td>MoE消融</td>
+    <td class="bad">最大一致性56%</td>
+    <td>安全行为是分布式的，不集中于特定专家</td>
+  </tr>
+</table>
+</div>
+
+<p>
+  <strong>贯穿性教训：</strong>所有负面结果中最一致的发现是，<strong>路由器偏置校准&mdash;&mdash;而非专家容量&mdash;&mdash;是剪枝后质量的主导因素</strong>。专家适配器实现了15%的MSE降低，但端到端仅&minus;2pp。TinyLoRA和GRPO路由器训练都降低了质量。只有Zerobias（在悬崖处）和基于校准的剪枝（避免悬崖）产生了正面结果。这意味着保持路由器正确分配token的能力比任何单个专家的表征容量更为重要。
+</p>
+
+<!-- ================================================================ -->
+<h2>6. 推理引擎：moe-stream</h2>
+
+<p>
+  层自适应剪枝产生的模型每层具有不同的专家数量，标准推理引擎（llama.cpp）不支持这种格式。我们开发了<a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>，一个开源的Rust推理引擎，用于处理这些可变专家模型。
+</p>
+
+<p>主要功能：</p>
+<ul>
+  <li><strong>三种推理模式</strong>：GPU常驻（模型 &lt; 80% RAM）、GPU混合（80&ndash;90% RAM）和SSD流式传输（&gt; 90% RAM）。模式根据模型大小和可用内存自动选择。</li>
+  <li><strong>SSD流式传输</strong>：通过按需从NVMe SSD流式加载专家权重，运行超出RAM容量的模型。在24 GB硬件上运行48 GB模型约2 tok/s。</li>
+  <li><strong>Q4量化矩阵乘法</strong>：跳过反量化，直接在Q4权重上计算，速度提升+79%（1.16 &rarr; 2.07 tok/s）。</li>
+  <li><strong>Metal GPU计算</strong>：Apple Silicon上的硬件加速推理（GPU常驻模型约55 tok/s）。</li>
+  <li><strong>可变专家数量</strong>：完全支持GGUF文件中的<code>experts_per_layer</code>元数据。</li>
+</ul>
+
+<p>
+  具有统一专家数量的模型（GPT-OSS-20B 28/32、27/32）兼容llama.cpp和moe-stream。具有层自适应数量的模型（Qwen3-30B-A3B JP-80pct、Qwen3-Coder-Next 50pct）需要moe-stream。
+</p>
+
+<!-- ================================================================ -->
+<h2>7. 结论</h2>
+
+<p>
+  我们提出了一种通过选择性移除专家来压缩MoE语言模型的实用框架。核心原则如下：
+</p>
+
+<ol>
+  <li><strong>校准优于权重。</strong>通过实际推理测量专家重要性，结果远优于静态权重分析（MMLU +15pp，语言任务+20pp）。</li>
+  <li><strong>层自适应分配。</strong>每层对剪枝的敏感性不同；自适应分配在最关键的地方保持质量。</li>
+  <li><strong>语言感知保护。</strong>具有足够专家数量的模型会发展出语言专门化路由，保护这些专家可实现面向特定市场的压缩而不损失质量。</li>
+  <li><strong>悬崖处的Zerobias。</strong>当剪枝达到悬崖点时，将路由器偏置置零是最有效的恢复技术&mdash;&mdash;超越基于梯度的优化、专家适配器训练和微参数调优。</li>
+  <li><strong>悬崖是普遍的。</strong>所有测试的MoE架构都表现出明显的剪枝悬崖，可通过专家重要性的基尼系数进行预测。</li>
+</ol>
+
+<p>
+  实际成果是，MoE模型可以在消费级硬件上以最小的质量损失进行显著压缩：GPT-OSS-20B从11.67缩减至9.4 GB（MMLU 77%），Qwen3-30B-A3B从17.3缩减至14.0 GB（启用思考时MMLU 79%），Qwen3-Coder-Next 80B从约48缩减至24.4 GB（MMLU 72%）。整个流程无需GPU训练，无需梯度计算，一小时内即可完成。
+</p>
+
+<!-- ================================================================ -->
+<h2>预剪枝模型</h2>
+
+<p>所有模型均可在HuggingFace上获取：</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>模型</th><th>大小</th><th>MMLU</th><th>llama.cpp</th><th>moe-stream</th></tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-28x">PrunedHub GPT-OSS-20B-28x</a></td>
+    <td>10.4 GB</td><td>78%</td><td class="good">Yes</td><td class="good">Yes</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-27x-Zerobias">PrunedHub GPT-OSS-20B-27x-Zerobias</a></td>
+    <td>~9.4 GB</td><td>77%</td><td class="good">Yes</td><td class="good">Yes</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-30B-A3B-JP-80pct">PrunedHub Qwen3-30B-A3B-JP-80pct</a></td>
+    <td>14.0 GB</td><td>79%</td><td class="bad">No</td><td class="good">Required</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-Coder-Next-50pct">PrunedHub Qwen3-Coder-Next-50pct</a></td>
+    <td>24.4 GB</td><td>72%</td><td class="bad">No</td><td class="good">Required</td>
+  </tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2>引用</h2>
+
+<pre style="background:var(--code-bg);padding:16px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;overflow-x:auto;line-height:1.6;">@misc{goba-ai-labs-expert-pruning-2026,
+  title={Calibration-Based Expert Pruning for Mixture-of-Experts Language Models},
+  author={GOBA-AI-Labs},
+  year={2026},
+  url={https://goba-ai-labs.github.io/paper/}
+}</pre>
+
+<div class="paper-footer">
+  <p>
+    <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a> &middot;
+    <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a> &middot;
+    <a href="https://huggingface.co/GOBA-AI-Labs">HuggingFace</a> &middot;
+    <a href="https://ko-fi.com/gobaailabs">Ko-fi</a>
+  </p>
+  <p style="margin-top:8px;">2026年2月</p>
+</div>
+
+</article>
+</body>
+</html>

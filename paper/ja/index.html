@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>較正に基づくMoE言語モデルのエキスパート刈り込み — GOBA-AI-Labs</title>
+  <meta name="description" content="エキスパート刈り込みは、品質を維持しながら冗長なMoEエキスパートを除去します。3つのモデルファミリーに適用し、民生ハードウェア上でロスレスから準ロスレスの圧縮を達成しました。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../../favicon.png" type="image/png">
+  <style>
+    :root {
+      --bg: #FAFAF8;
+      --bg-surface: #F0EEEA;
+      --text: #1A1A1A;
+      --text-muted: #555;
+      --text-dim: #888;
+      --accent: #9C7D3C;
+      --accent-hover: #B08E48;
+      --border: #D8D4CE;
+      --good: #15803d;
+      --bad: #dc2626;
+      --code-bg: #F4F2EE;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0C0C0E;
+        --bg-surface: #161618;
+        --text: #F0EDE8;
+        --text-muted: #8A8680;
+        --text-dim: #5C5955;
+        --accent: #C4A265;
+        --accent-hover: #D4B478;
+        --border: #2A2926;
+        --good: #6ee7b7;
+        --bad: #fca5a5;
+        --code-bg: #1C1C1F;
+      }
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.8;
+      -webkit-font-smoothing: antialiased;
+      font-size: 17px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .paper { max-width: 760px; margin: 0 auto; padding: 60px 24px 100px; }
+
+    /* Header */
+    .paper-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: color-mix(in srgb, var(--bg) 90%, transparent);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      font-family: 'Inter', sans-serif;
+    }
+    .paper-nav-inner {
+      max-width: 760px; margin: 0 auto; padding: 12px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.85rem;
+    }
+    .paper-nav a { color: var(--text-muted); }
+    .paper-nav a:hover { color: var(--text); text-decoration: none; }
+    .lang-links { display: flex; gap: 2px; margin-left: 12px; border-left: 1px solid var(--border); padding-left: 12px; }
+    .lang-links a {
+      font-size: 0.72rem; font-weight: 600; padding: 3px 6px; border-radius: 4px;
+      letter-spacing: 0.04em; color: var(--text-dim);
+    }
+    .lang-links a:hover { color: var(--text-muted); background: var(--bg-surface); }
+    .lang-links a.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+    /* Title block */
+    .title-block { text-align: center; padding: 80px 0 40px; }
+    .title-block h1 {
+      font-size: 1.9rem; font-weight: 700; line-height: 1.3;
+      letter-spacing: -0.01em; margin-bottom: 16px;
+    }
+    .authors { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 6px; }
+    .affiliation { color: var(--text-dim); font-size: 0.85rem; font-family: 'Inter', sans-serif; }
+    .paper-date { color: var(--text-dim); font-size: 0.85rem; margin-top: 8px; font-family: 'Inter', sans-serif; }
+
+    /* Abstract */
+    .abstract {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 24px 28px; margin: 32px 0 48px;
+    }
+    .abstract-label {
+      font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .abstract p { font-size: 0.95rem; line-height: 1.7; }
+
+    /* Sections */
+    h2 {
+      font-size: 1.4rem; font-weight: 700; margin: 48px 0 16px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 1.15rem; font-weight: 600; margin: 32px 0 12px; }
+    h4 { font-size: 1rem; font-weight: 600; margin: 24px 0 8px; }
+    p { margin-bottom: 14px; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-family: 'Inter', sans-serif; font-size: 0.85rem;
+    }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th {
+      font-weight: 600; font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-muted);
+      background: var(--bg-surface);
+    }
+    td { color: var(--text); }
+    .good { color: var(--good); font-weight: 600; }
+    .bad { color: var(--bad); font-weight: 600; }
+    .highlight-row { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    caption {
+      text-align: left; font-size: 0.85rem; color: var(--text-muted);
+      font-family: 'Inter', sans-serif; margin-bottom: 8px; font-style: italic;
+    }
+
+    /* Lists */
+    ul, ol { margin: 8px 0 16px 24px; }
+    li { margin-bottom: 6px; }
+
+    /* Code / technical */
+    code {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.88em;
+      background: var(--code-bg); padding: 2px 6px; border-radius: 4px;
+    }
+
+    /* Figures */
+    .figure {
+      margin: 28px 0; text-align: center;
+    }
+    .figure-caption {
+      font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;
+      font-family: 'Inter', sans-serif; font-style: italic;
+    }
+
+    /* Key finding boxes */
+    .finding {
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px; margin: 20px 0;
+      background: color-mix(in srgb, var(--accent) 5%, transparent);
+      font-size: 0.95rem;
+    }
+    .finding strong { color: var(--accent); }
+
+    /* Footer */
+    .paper-footer {
+      margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border);
+      font-family: 'Inter', sans-serif; font-size: 0.82rem; color: var(--text-dim);
+      text-align: center;
+    }
+    .paper-footer a { color: var(--text-muted); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      body { font-size: 16px; }
+      .title-block h1 { font-size: 1.5rem; }
+      .paper { padding: 40px 16px 60px; }
+      th, td { padding: 8px 10px; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="paper-nav">
+  <div class="paper-nav-inner">
+    <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <a href="https://huggingface.co/GOBA-AI-Labs">Models</a>
+      <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>
+      <div class="lang-links">
+        <a href="/paper/">EN</a>
+        <a href="/paper/ja/" class="active">JA</a>
+        <a href="/paper/zh-cn/">简</a>
+        <a href="/paper/zh-tw/">繁</a>
+        <a href="/paper/ko/">KO</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<article class="paper">
+
+<div class="title-block">
+  <h1>較正に基づくMixture-of-Experts言語モデルのエキスパート刈り込み</h1>
+  <p class="authors">GOBA-AI-Labs</p>
+  <p class="affiliation">独立研究</p>
+  <p class="paper-date">2026年2月</p>
+</div>
+
+<div class="abstract">
+  <div class="abstract-label">概要</div>
+  <p>
+    本研究では、推論時に測定されたエキスパートの重要度に基づいて選択的にエキスパートを除去することにより、Mixture-of-Experts（MoE）言語モデルを圧縮するフレームワークを提案する。静的なモデルパラメータから重要度を推定する重み基準の指標とは異なり、本手法の較正に基づくアプローチは、多様なワークロード上での実際の推論を通じてエキスパートをスコアリングし、大幅に正確な重要度ランキングを生成する。本研究では3つの相補的な手法を導入する：各層の感度に基づいて異なる数のエキスパートを保持する<em>層適応的エキスパート割り当て</em>、圧縮時に言語特化エキスパートを検出・保護する<em>言語認識エキスパート保護</em>、および古いルーターバイアスを中和することで刈り込みクリフ地点の品質を回復するゼロコストの後処理ステップである<em>Zerobiasルーター最適化</em>。本手法を3つのモデルファミリーで検証した：GPT-OSS-20B（ロスレス圧縮、10.4 GBでMMLU 78%維持）、Qwen3-30B-A3B（言語認識刈り込み、14 GBで思考モードMMLU 79%）、Qwen3-Coder-Next 80B（50%刈り込み、24.4 GBでMMLU 72%）。全モデルにおいて、品質が狭い刈り込み範囲内で保持から崩壊へ急激に遷移する普遍的な刈り込みクリフ現象を特定し、エキスパート重要度分布のジニ係数がクリフの急峻さを予測することを示した。本フレームワークはGPU訓練不要、勾配計算不要であり、民生ハードウェア上で1時間以内に完了する。
+  </p>
+</div>
+
+<!-- ================================================================ -->
+<h2>1. はじめに</h2>
+
+<p>
+  Mixture-of-Experts（MoE）言語モデルは、トークンごとに全パラメータのごく一部のみを活性化することで、フロンティアレベルの品質を達成する。DeepSeek-V3（総パラメータ671B、活性パラメータ37B）、Qwen3-Coder-Next（総パラメータ80B、トークンあたり活性パラメータ約3B）、GPT-OSS-20B（総パラメータ21B、活性パラメータ3.6B）などの最近のモデルは、MoEアーキテクチャが推論コストのごく一部で密なモデルと同等以上の性能を達成できることを実証している。しかし、その総パラメータ数&mdash;量子化された形式でも数十から数百ギガバイトに達することが多い&mdash;は、民生ハードウェアのメモリ容量を超えている。
+</p>
+
+<p>
+  既存の圧縮手法はサイズの問題に対処するが、MoEモデルが提供する構造的な機会を活用していない。訓練後量子化（GPTQ、AWQ、GGUF Q4）は全パラメータに対して一様に精度を下げ、モデルを単一のブロックとして扱う。知識蒸留はより小さな生徒モデルを生成できるが、高コストの再訓練が必要である。どちらのアプローチも、MoEを密なモデルから区別する根本的な特性を活用していない：すなわち、機能的寄与に基づいて選択的に保持または除去できる、離散的で独立にパラメータ化されたエキスパートサブネットワークの存在である。
+</p>
+
+<p>
+  本研究では<em>較正に基づくエキスパート刈り込み</em>を提案する：代表的なワークロード上での実際の推論を通じてエキスパートの重要度を測定し、各層から最も重要度の低いエキスパートを除去する手法である。この手法は量子化されたGGUFモデルファイル上で直接動作し、逆量子化、勾配計算、再訓練のいずれも必要としない。出力は層ごとにエキスパート数が削減された有効なGGUFファイルであり、即座に推論に使用できる。
+</p>
+
+<p>本研究の貢献は以下の通りである：</p>
+<ol>
+  <li><strong>較正に基づく重要度スコアリング</strong>：重み基準の指標を大幅に上回る性能（MMLU +15pp、日本語タスク +20pp）。</li>
+  <li><strong>層適応的エキスパート割り当て</strong>：各層が感度に基づいて動的に決定されたエキスパート数を保持することで品質を維持。</li>
+  <li><strong>言語認識エキスパート保護</strong>：言語特化エキスパートを検出・保護し、市場特化型の圧縮を実現。</li>
+  <li><strong>Zerobiasルーター最適化</strong>：古いルーターバイアスを中和することで刈り込みクリフ地点の品質を回復し、ゼロコストでロスレス圧縮の限界を拡張。</li>
+  <li><strong>モデル横断的検証</strong>：3つのアーキテクチャ（層あたり32、128、512エキスパート）において、刈り込みクリフが普遍的かつ予測可能であることを実証。</li>
+</ol>
+
+<!-- ================================================================ -->
+<h2>2. 手法</h2>
+
+<h3>2.1 概要</h3>
+
+<p>
+  本刈り込みパイプラインは4つの段階で動作する：(1) 較正データ収集、(2) 重要度スコアリング、(3) 層適応的割り当てを伴う刈り込み計画の生成、(4) GGUFファイルの刈り込み。パイプラインは量子化されたGGUFモデルと較正プロンプトのセットを入力として受け取り、層ごとに可変のエキスパート数を持つ刈り込み済みGGUFファイルを出力する。
+</p>
+
+<h3>2.2 較正に基づく重要度スコアリング</h3>
+
+<p>
+  各較正プロンプトをモデル全体に通し、各層・各エキスパートについて、ルーターがそのエキスパートを選択する頻度と、選択時にどの程度強く選好するかを記録する。重要度スコアはこれら2つのシグナルを統合する：頻繁に活性化され、かつ強く選好されるエキスパートは高いスコアを受け、稀にしか使用されないか弱くゲーティングされるエキスパートは低いスコアを受ける。
+</p>
+
+<p>
+  較正セットは、刈り込み後のモデルが処理することが期待されるワークロードを網羅すべきである。汎用圧縮の場合、コード生成、数学的推論、事実的想起、自然言語による質問応答をカバーするプロンプトを使用する。言語特化型圧縮の場合、対象言語のプロンプトを追加する。
+</p>
+
+<div class="finding">
+  <strong>主要な発見:</strong> 較正に基づくスコアリングは、重み基準のスコアリングを大幅に上回る。Qwen3-30B-A3Bにおいてエキスパート保持率80%の場合、較正ベースはMMLU 74%を達成する一方、重み基準では60%に留まる（+15ppの差）。日本語評価では、較正ベースが85%に対し重み基準は65%である（+20pp）。重み基準のスコアリングは根本的に異なるエキスパート保持セットを生成し、推論品質に対して最適化されていない。
+</div>
+
+<h3>2.3 層適応的エキスパート割り当て</h3>
+
+<p>
+  MoEモデルの全ての層がエキスパート除去に対して等しく敏感なわけではない。一部の層は高度に特化したエキスパートを持ち、いずれか1つを除去するだけで大きな品質低下を引き起こすが、他の層は冗長なエキスパートを持ち安全に除去できる。本手法の層適応的アプローチは、層ごとの重要度分布を計算し、保持されるエキスパートと刈り込まれるエキスパート間の測定された重要度ギャップに基づいて、各層に異なる保持数を割り当てる。
+</p>
+
+<p>
+  これにより、一部の層はほぼ全てのエキスパートを保持し、他の層では大幅にエキスパートが除去されたモデルが生成される。結果として得られるGGUFファイルは可変の<code>experts_per_layer</code>メタデータフィールドを持ち、標準的な推論エンジン（llama.cpp）では現在サポートされていない。これらの可変エキスパートモデルを扱うため、オープンソースのRust推論エンジン<a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>を開発した。均一なエキスパート数を持つモデル（例：GPT-OSS-20Bの全層32から28への刈り込み）はllama.cppとの互換性を維持する。
+</p>
+
+<h3>2.4 言語認識エキスパート保護</h3>
+
+<p>
+  十分なエキスパート数を持つMoEモデルは、訓練中に言語特化エキスパートを発達させる。Qwen3-30B-A3B（層あたり128エキスパート）では、多言語較正プロンプトにわたる差分頻度分析により、30の日本語特化エキスパートと15の英語特化エキスパートを同定した。対照的に、GPT-OSS-20B（層あたり32エキスパート）はほぼ均一なルーティング（ジニ係数 = 0.041）を示し言語特化がない一方、GLM-5（層あたり256エキスパート）はさらに強い特化（15の日本語特化エキスパート、ジニ係数 = 0.444）を示す。
+</p>
+
+<div class="finding">
+  <strong>エキスパート数が言語特化を支配する:</strong> 32エキスパート &rarr; 言語特化エキスパート0（ジニ係数 0.041）；128エキスパート &rarr; 30の特化エキスパート（ジニ係数 0.233）；256エキスパート &rarr; 15の特化エキスパート（ジニ係数 0.444）。より多くのエキスパートを持つモデルは、言語特化ルーティングを含む、より明確な機能的特化を発達させる。
+</div>
+
+<p>
+  市場特化型圧縮（例：日本市場向け）では、検出された言語特化エキスパートを、そのグローバル重要度スコアに関わらず刈り込みから保護する。これにより、積極的な圧縮が適用された場合でも言語能力が維持される。
+</p>
+
+<h3>2.5 Zerobiasルーター最適化</h3>
+
+<p>
+  MoEルーターは、全エキスパートセットで事前訓練中に較正された学習済みバイアス項を含む。刈り込み後、これらのバイアスは不正確になる可能性がある：以前は存在しなくなったエキスパートにトークンを誘導していたバイアスがルーティングの空白を生み出し、残存エキスパートのバイアスは縮小されたセット内での相対的重要度を反映しなくなる。
+</p>
+
+<p>
+  Zerobiasは全てのルーターバイアスをゼロに設定し、ルーターが入力依存のルーティング重みのみに依拠するよう強制する。これはゼロコストの後処理ステップであり&mdash;GGUFファイル内のバイアステンソルの修正以外に訓練も計算も不要である。
+</p>
+
+<div class="finding">
+  <strong>Zerobiasはクリフ特異的である:</strong> 刈り込みクリフ地点（GPT-OSS-20B 27/32エキスパート）において、ZerobiasはMMLU +9pp（68% &rarr; 77%）を回復し、安全動作点（28/32 = 78%）にほぼ匹敵する。しかし、十分に較正された28/32の地点では、元のバイアスがまだ有用なルーティング情報をエンコードしているため、Zerobiasは有害である（&minus;14pp）。Zerobiasは、刈り込みによってモデルの冗長性マージンを超えたために元のバイアスが不正確になった場合にのみ有益である。
+</div>
+
+<!-- ================================================================ -->
+<h2>3. 結果</h2>
+
+<h3>3.1 GPT-OSS-20B：ロスレス圧縮</h3>
+
+<p>
+  GPT-OSS-20Bは、層あたり32エキスパート、top-2シグモイドルーティング、MXFP4フォーマットの21Bパラメータ MoEモデルである。このモデルはエキスパート数が少なく、層適応的割り当てが有意義に機能しないため、均一刈り込み（各層から同数のエキスパートを除去）を使用する。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表1：GPT-OSS-20B 刈り込み結果（Q4_K_M、MMLU 100問 0-shot、GSM8K 50問 0-shot）</caption>
+  <tr><th>構成</th><th>サイズ</th><th>エキスパート/層</th><th>MMLU</th><th>GSM8K</th><th>HumanEval</th></tr>
+  <tr><td>オリジナル</td><td>11.67 GB</td><td>32</td><td>78%</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr class="highlight-row"><td><strong>刈り込み 28/32</strong></td><td><strong>10.40 GB</strong></td><td><strong>28</strong></td><td class="good"><strong>78%</strong></td><td class="good"><strong>92%</strong></td><td class="good"><strong>78%</strong></td></tr>
+  <tr><td>刈り込み 27/32</td><td>~10.1 GB</td><td>27</td><td class="bad">68%</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr class="highlight-row"><td><strong>27/32 + Zerobias</strong></td><td><strong>~9.4 GB</strong></td><td><strong>27</strong></td><td class="good"><strong>77%</strong></td><td><strong>84%</strong></td><td>&mdash;</td></tr>
+  <tr><td>刈り込み 26/32</td><td>~9.7 GB</td><td>26</td><td>69%</td><td>&mdash;</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  28/32モデルは<strong>ロスレス圧縮</strong>を達成する：MMLU 78%（オリジナルと同一）、GSM8K 92%（46/50）、HumanEval 78%（39/50）。ファイルサイズの11.67 GBから10.40 GBへの削減（&minus;10.9%）は控えめだが、品質コストはゼロである。
+</p>
+
+<p>
+  27/32エキスパートで急峻な<strong>刈り込みクリフ</strong>が出現する：層あたりたった1つのエキスパートの除去で、MMLUが78%から68%（&minus;10pp）に低下する。Zerobiasを適用することでこの損失の大部分が回復され（77%、オリジナルから&minus;1pp）、9.4 GBの準ロスレスモデルが得られる。注目すべきことに、Zerobiasなしの26/32は69%であり、Zerobiasなしの27/32（68%）を上回る&mdash;このことは、クリフが28&rarr;27の遷移に集中したステップ関数であることを示している。
+</p>
+
+<h3>3.2 Qwen3-30B-A3B：言語認識刈り込み</h3>
+
+<p>
+  Qwen3-30B-A3Bは、48層にわたり層あたり128エキスパートを持つ30Bパラメータ MoEモデルである。エキスパート数が多いため、層適応的割り当てと言語認識保護が効果的に機能する。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表2：Qwen3-30B-A3B 刈り込み曲線（Q4_K_M、MMLU 100問）</caption>
+  <tr><th>構成</th><th>サイズ</th><th>保持率</th><th>MMLU</th><th>備考</th></tr>
+  <tr><td>オリジナル</td><td>17.3 GB</td><td>100%</td><td>77%</td><td>&mdash;</td></tr>
+  <tr><td>刈り込み 90%</td><td>15.6 GB</td><td>90%</td><td>73%</td><td>&minus;4pp</td></tr>
+  <tr class="highlight-row"><td><strong>刈り込み 80%（日本語認識）</strong></td><td><strong>14.0 GB</strong></td><td><strong>80%</strong></td><td class="good"><strong>79%（思考モード）</strong></td><td><strong>日本語 90%</strong></td></tr>
+  <tr><td>刈り込み 70%</td><td>12.3 GB</td><td>70%</td><td class="bad">51%</td><td>クリフ（&minus;26pp）</td></tr>
+  <tr><td>刈り込み 60%</td><td>&mdash;</td><td>60%</td><td class="bad">崩壊</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  言語認識日本語エキスパート保護を適用した保持率80%モデル（14.0 GB）は、MMLU 79%（思考モード有効時）、GSM8K 92%、日本語品質90%を達成する。これは、言語認識刈り込みが<strong>圧縮と多言語品質の維持を同時に</strong>達成できることを実証している。
+</p>
+
+<p>
+  80%と70%の保持率の間で急峻なクリフが出現する：MMLUが72%から51%（&minus;21pp）に低下し、さらなる刈り込みは完全な崩壊を引き起こす。これにより、80%の保持率（14 GB）がこのモデルの実用的な下限として確立される。
+</p>
+
+<h4>較正手法と重み基準手法の比較</h4>
+
+<div class="table-wrap">
+<table>
+  <caption>表3：重要度スコアリング手法の比較（30B-A3B、保持率80%）</caption>
+  <tr><th>手法</th><th>MMLU</th><th>日本語</th><th>GSM8K</th></tr>
+  <tr class="highlight-row"><td><strong>較正ベース + 日本語保護</strong></td><td class="good"><strong>74%</strong></td><td class="good"><strong>85%</strong></td><td class="good"><strong>92%</strong></td></tr>
+  <tr><td>重みベース + 日本語保護</td><td class="bad">60%</td><td class="bad">65%</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  較正に基づくスコアリングは、同じ保持率において重み基準のスコアリングをMMLUで+14pp、日本語評価で+20pp上回る。2つの手法は根本的に異なるエキスパート保持セットを生成する&mdash;重みノルムは推論時の重要度を予測しない。
+</p>
+
+<h3>3.3 Qwen3-Coder-Next 80B：深い刈り込み</h3>
+
+<p>
+  Qwen3-Coder-Nextは、48層にわたり層あたり512エキスパートを持つ80Bパラメータ MoEモデルである（トークンあたり活性パラメータ約3B）。エキスパート数が多いため、積極的な層適応的刈り込みが可能である。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表4：Qwen3-Coder-Next 80B 刈り込み（Q4_K_M、MMLU 100問）</caption>
+  <tr><th>構成</th><th>サイズ</th><th>保持率</th><th>MMLU</th><th>その他</th></tr>
+  <tr><td>オリジナル Q4</td><td>~48 GB</td><td>100%</td><td>77%</td><td>HumanEval 74%</td></tr>
+  <tr><td>v7（44%刈り込み）</td><td>27.68 GB</td><td>56%</td><td>70%</td><td>HumanEval 72%、LCB Easy 83%</td></tr>
+  <tr class="highlight-row"><td><strong>50%刈り込み</strong></td><td><strong>24.4 GB</strong></td><td><strong>50%</strong></td><td class="good"><strong>72%</strong></td><td>&mdash;</td></tr>
+  <tr><td>55%刈り込み</td><td>~20 GB</td><td>45%</td><td class="bad">60%</td><td>クリフ（&minus;12pp）</td></tr>
+  <tr><td>65%刈り込み</td><td>~17.9 GB</td><td>35%</td><td class="bad">ランダム</td><td>完全崩壊</td></tr>
+</table>
+</div>
+
+<p>
+  50%刈り込みモデル（24.4 GB）はMMLU 72%を達成する&mdash;24 GBの民生ハードウェアメモリに収まりつつ、オリジナル品質の93.5%を維持する。これは同モデルのQ2量子化と比較して顕著に優れている。Q2量子化は類似のファイルサイズ（約25&ndash;28 GB）を生成するが、全重みに対する均一な精度低下によりMMLU推定55&ndash;60%となる。
+</p>
+
+<p>
+  50%から45%の保持率の間でクリフが出現し（&minus;12pp）、35%の保持率ではランダムな出力となる。50%の保持率がこのモデルの最深の実用的圧縮である。
+</p>
+
+<h3>3.4 エキスパート刈り込みと量子化の比較</h3>
+
+<div class="table-wrap">
+<table>
+  <caption>表5：類似サイズにおけるエキスパート刈り込みと積極的量子化の比較</caption>
+  <tr><th>アプローチ</th><th>目標サイズ</th><th>手法</th><th>残存精度</th><th>品質への影響</th></tr>
+  <tr class="highlight-row"><td><strong>エキスパート刈り込み</strong></td><td>24.4 GB</td><td>エキスパートの50%を除去</td><td class="good">フル Q4（4-bit）</td><td class="good">MMLU 72%</td></tr>
+  <tr><td>Q2 量子化</td><td>~25&ndash;28 GB</td><td>全重みを2-bitに削減</td><td class="bad">2-bit</td><td class="bad">MMLU ~55&ndash;60%</td></tr>
+</table>
+</div>
+
+<p>
+  エキスパート刈り込みと量子化は直交する圧縮技術である。エキスパート刈り込みは残存エキスパートの完全な量子化精度を維持しつつ、エキスパートサブネットワーク全体を除去する。量子化は全パラメータに対して均一に精度を低下させる。同一ファイルサイズにおいて、保持されたエキスパートが元の精度で動作するため、エキスパート刈り込みは大幅に高い品質を達成する一方、積極的な量子化は全ての重みを劣化させる。
+</p>
+
+<p>
+  さらに、エキスパート刈り込みは既に量子化されたモデルの上に適用できる（本研究ではQ4_K_M GGUFファイルに対して行っている）ため、2つの技術は合成可能である：まず重みレベルの圧縮に量子化を適用し、次に構造的圧縮にエキスパート刈り込みを適用する。
+</p>
+
+<!-- ================================================================ -->
+<h2>4. モデル横断的知見</h2>
+
+<h3>4.1 普遍的な刈り込みクリフ</h3>
+
+<p>
+  3つのモデルファミリー全てが急峻な刈り込みクリフ&mdash;品質が完全に保持された状態から完全に崩壊する状態へ遷移する狭い刈り込み率の範囲&mdash;を示す。これは漸進的な劣化ではなく、相転移である。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表6：モデルファミリー間の刈り込みクリフ特性</caption>
+  <tr><th>モデル</th><th>エキスパート/層</th><th>安全な刈り込み</th><th>クリフ</th><th>ジニ係数</th></tr>
+  <tr><td>GPT-OSS-20B</td><td>32</td><td>4エキスパート（~12.5%）</td><td>28 &rarr; 27（&minus;10pp）</td><td>0.041</td></tr>
+  <tr><td>Qwen3-30B-A3B</td><td>128</td><td>~26エキスパート（~20%）</td><td>80% &rarr; 70%（&minus;21pp）</td><td>0.233</td></tr>
+  <tr><td>Qwen3-80B</td><td>512</td><td>~256エキスパート（~50%）</td><td>50% &rarr; 45%（&minus;12pp）</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  統一的な予測因子が浮上する：エキスパート重要度分布の<strong>ジニ係数</strong>がクリフの急峻さを予測する。低いジニ係数（ほぼ均一な重要度、例：GPT-OSSの0.041）を持つモデルは、全てのエキスパートが実質的に寄与しているため、エキスパートあたりのクリフがより急峻になる。より高いジニ係数（より偏った重要度）を持つモデルはより緩やかな劣化を示し、クリフに達するまでにより深い刈り込みが可能となる。
+</p>
+
+<h3>4.2 品質劣化の順序</h3>
+
+<p>
+  全ての刈り込み実験において、刈り込みが進むにつれて能力劣化の一貫した順序が観察される：
+</p>
+
+<ol>
+  <li><strong>コード生成</strong>（最も脆弱）&mdash; 最初に劣化し、有効なプログラムが消失する前に擬似コードを出力する</li>
+  <li><strong>算術</strong> &mdash; 相転移的なエラー（例：15+27=45）</li>
+  <li><strong>推論</strong> &mdash; 論理的整合性の低下</li>
+  <li><strong>事実的知識</strong>（最も頑健）&mdash; 最後に劣化し、多数のエキスパートに分散している</li>
+</ol>
+
+<p>
+  この順序は較正設計にとって重要である：較正セットがコード生成（最も脆弱な能力）をカバーすることが不可欠であり、コード専用の評価によってQ&Aのみのテストでは見えない障害モードが明らかになる。
+</p>
+
+<!-- ================================================================ -->
+<h2>5. 主な否定的結果</h2>
+
+<p>
+  22の研究フェーズにわたり、成功しなかった多数のアプローチを体系的に評価した。将来の研究の境界条件として、最も重要な否定的結果を要約する。
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>表7：主な否定的結果の要約</caption>
+  <tr><th>アプローチ</th><th>結果</th><th>主な知見</th></tr>
+  <tr>
+    <td>Gate L2ノルム刈り込み（REAP）</td>
+    <td class="bad">50%でHumanEval 70%</td>
+    <td>静的重み指標は不十分；較正ベースのスコアリングが必要</td>
+  </tr>
+  <tr>
+    <td>重みベース重要度</td>
+    <td class="bad">MMLU 60%（較正74%に対し）</td>
+    <td>重みノルムは推論時の重要度を予測しない</td>
+  </tr>
+  <tr>
+    <td>均一刈り込み比率</td>
+    <td class="bad">80B MMLU 64%</td>
+    <td>層適応的割り当てが品質維持に不可欠</td>
+  </tr>
+  <tr>
+    <td>英語最適化強制ペナルティ</td>
+    <td class="bad">MMLU 58%</td>
+    <td>言語エキスパートはSTEM推論にも寄与する</td>
+  </tr>
+  <tr>
+    <td>ルーティングブースト + 刈り込み</td>
+    <td class="bad">MMLU 56%（&minus;21pp）</td>
+    <td>ブーストと刈り込み計画は共同で計算する必要がある</td>
+  </tr>
+  <tr>
+    <td>Expert-as-Adapter（知識蒸留）</td>
+    <td class="bad">層MSE &minus;15%、E2E &minus;2pp</td>
+    <td>層レベルの改善 &ne; エンドツーエンドの改善</td>
+  </tr>
+  <tr>
+    <td>TinyLoRA（13パラメータ）</td>
+    <td class="bad">クリフでMMLU &minus;4pp</td>
+    <td>マイクロパラメータ調整はMoE回復に不十分</td>
+  </tr>
+  <tr>
+    <td>GRPOルーター訓練</td>
+    <td class="bad">MMLU 67%（&minus;5pp）</td>
+    <td>勾配ベースのバイアス最適化はZerobiasに劣る</td>
+  </tr>
+  <tr>
+    <td>Zerobias反復刈り込み</td>
+    <td class="bad">26/32：65%（&minus;4pp）</td>
+    <td>Zerobiasはクリフ特異的；クリフを超えると有害</td>
+  </tr>
+  <tr>
+    <td>密なSLM刈り込み（4B）</td>
+    <td class="bad">FFN 25%：崩壊</td>
+    <td>密なモデルにはエキスパートレベルの冗長性がない；圧縮ではMoE &gg; 密なモデル</td>
+  </tr>
+  <tr>
+    <td>MoE abliteration</td>
+    <td class="bad">最大一貫性 56%</td>
+    <td>安全性の振る舞いは分散しており、エキスパートに局在しない</td>
+  </tr>
+</table>
+</div>
+
+<p>
+  <strong>横断的な教訓:</strong> 全ての否定的結果を通じて最も一貫した知見は、<strong>ルーターバイアスの較正&mdash;エキスパートの容量ではなく&mdash;が刈り込み後の品質を支配する要因である</strong>ということである。Expert-as-AdapterはMSEを15%削減するがエンドツーエンドでは&minus;2ppとなる。TinyLoRAとGRPOルーター訓練はいずれも品質を劣化させる。Zerobias（クリフ地点において）と較正に基づく刈り込み（クリフを回避する）のみが正の結果を生む。これは、トークンを正しく分配するルーターの能力を維持することが、個々のエキスパートの表現能力よりも重要であることを意味する。
+</p>
+
+<!-- ================================================================ -->
+<h2>6. 推論エンジン：moe-stream</h2>
+
+<p>
+  層適応的刈り込みは層ごとに異なるエキスパート数を持つモデルを生成するが、標準的な推論エンジン（llama.cpp）はこれをサポートしていない。これらの可変エキスパートモデルを扱うため、オープンソースのRust推論エンジン<a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>を開発した。
+</p>
+
+<p>主な機能：</p>
+<ul>
+  <li><strong>3つの推論モード</strong>：GPU常駐（モデルがRAMの80%未満）、GPUハイブリッド（RAMの80&ndash;90%）、SSDストリーミング（RAMの90%超）。モデルサイズと利用可能メモリに基づいて自動選択される。</li>
+  <li><strong>SSDストリーミング</strong>：NVMe SSDからオンデマンドでエキスパート重みをストリーミングし、RAMを超えるモデルを実行。24 GBハードウェア上で48 GBモデルに対して約2 tok/s。</li>
+  <li><strong>Q4量子化行列積</strong>：逆量子化をスキップしてQ4重み上で直接計算し、+79%の高速化を実現（1.16 &rarr; 2.07 tok/s）。</li>
+  <li><strong>Metal GPU計算</strong>：Apple Silicon上でのハードウェアアクセラレーション推論（GPU常駐モデルで約55 tok/s）。</li>
+  <li><strong>可変エキスパート数</strong>：GGUFファイル内の<code>experts_per_layer</code>メタデータの完全サポート。</li>
+</ul>
+
+<p>
+  均一なエキスパート数を持つモデル（GPT-OSS-20B 28/32、27/32）はllama.cppとmoe-streamの両方で動作する。層適応的なエキスパート数を持つモデル（Qwen3-30B-A3B JP-80pct、Qwen3-Coder-Next 50pct）はmoe-streamが必要である。
+</p>
+
+<!-- ================================================================ -->
+<h2>7. 結論</h2>
+
+<p>
+  本研究では、エキスパートを選択的に除去することでMoE言語モデルを圧縮する実用的なフレームワークを提示した。主要な原則は以下の通りである：
+</p>
+
+<ol>
+  <li><strong>重みより較正を。</strong>実際の推論を通じてエキスパートの重要度を測定することで、静的重み分析よりも劇的に優れた結果を生む（MMLU +15pp、言語タスク +20pp）。</li>
+  <li><strong>層適応的割り当て。</strong>各層は刈り込みに対して異なる感度を持つ；適応的割り当ては最も重要な箇所で品質を維持する。</li>
+  <li><strong>言語認識保護。</strong>十分なエキスパート数を持つモデルは言語特化ルーティングを発達させ、これらのエキスパートを保護することで品質損失なしの市場特化型圧縮が可能になる。</li>
+  <li><strong>クリフでのZerobias。</strong>刈り込みがクリフ地点に達した場合、ルーターバイアスのゼロ化が最も効果的な回復手法であり&mdash;勾配ベースの最適化、エキスパートアダプター訓練、マイクロパラメータ調整を凌駕する。</li>
+  <li><strong>クリフは普遍的である。</strong>テストした全てのMoEアーキテクチャが急峻な刈り込みクリフを示し、エキスパート重要度のジニ係数から予測可能である。</li>
+</ol>
+
+<p>
+  実用的な成果として、MoEモデルは最小限の品質損失で民生ハードウェア上で大幅に圧縮できる：GPT-OSS-20Bは11.67 GBから9.4 GB（MMLU 77%）、Qwen3-30B-A3Bは17.3 GBから14.0 GB（思考モードでMMLU 79%）、Qwen3-Coder-Next 80Bは約48 GBから24.4 GB（MMLU 72%）。パイプライン全体はGPU訓練不要、勾配計算不要であり、1時間以内に完了する。
+</p>
+
+<!-- ================================================================ -->
+<h2>刈り込み済みモデル</h2>
+
+<p>全モデルはHuggingFaceで公開中：</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>モデル</th><th>サイズ</th><th>MMLU</th><th>llama.cpp</th><th>moe-stream</th></tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-28x">PrunedHub GPT-OSS-20B-28x</a></td>
+    <td>10.4 GB</td><td>78%</td><td class="good">対応</td><td class="good">対応</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-27x-Zerobias">PrunedHub GPT-OSS-20B-27x-Zerobias</a></td>
+    <td>~9.4 GB</td><td>77%</td><td class="good">対応</td><td class="good">対応</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-30B-A3B-JP-80pct">PrunedHub Qwen3-30B-A3B-JP-80pct</a></td>
+    <td>14.0 GB</td><td>79%</td><td class="bad">非対応</td><td class="good">必須</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-Coder-Next-50pct">PrunedHub Qwen3-Coder-Next-50pct</a></td>
+    <td>24.4 GB</td><td>72%</td><td class="bad">非対応</td><td class="good">必須</td>
+  </tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2>引用</h2>
+
+<pre style="background:var(--code-bg);padding:16px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;overflow-x:auto;line-height:1.6;">@misc{goba-ai-labs-expert-pruning-2026,
+  title={Calibration-Based Expert Pruning for Mixture-of-Experts Language Models},
+  author={GOBA-AI-Labs},
+  year={2026},
+  url={https://goba-ai-labs.github.io/paper/}
+}</pre>
+
+<div class="paper-footer">
+  <p>
+    <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a> &middot;
+    <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a> &middot;
+    <a href="https://huggingface.co/GOBA-AI-Labs">HuggingFace</a> &middot;
+    <a href="https://ko-fi.com/gobaailabs">Ko-fi</a>
+  </p>
+  <p style="margin-top:8px;">2026年2月</p>
+</div>
+
+</article>
+</body>
+</html>

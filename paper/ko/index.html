@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoE 언어 모델을 위한 보정 기반 전문가 가지치기 — GOBA-AI-Labs</title>
+  <meta name="description" content="전문가 가지치기는 품질을 유지하면서 중복된 MoE 전문가를 제거합니다. 3개 모델 계열에 적용하여 소비자용 하드웨어에서 무손실 내지 준무손실 압축을 달성하였습니다.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../../favicon.png" type="image/png">
+  <style>
+    :root {
+      --bg: #FAFAF8;
+      --bg-surface: #F0EEEA;
+      --text: #1A1A1A;
+      --text-muted: #555;
+      --text-dim: #888;
+      --accent: #9C7D3C;
+      --accent-hover: #B08E48;
+      --border: #D8D4CE;
+      --good: #15803d;
+      --bad: #dc2626;
+      --code-bg: #F4F2EE;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0C0C0E;
+        --bg-surface: #161618;
+        --text: #F0EDE8;
+        --text-muted: #8A8680;
+        --text-dim: #5C5955;
+        --accent: #C4A265;
+        --accent-hover: #D4B478;
+        --border: #2A2926;
+        --good: #6ee7b7;
+        --bad: #fca5a5;
+        --code-bg: #1C1C1F;
+      }
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.8;
+      -webkit-font-smoothing: antialiased;
+      font-size: 17px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .paper { max-width: 760px; margin: 0 auto; padding: 60px 24px 100px; }
+
+    /* Header */
+    .paper-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: color-mix(in srgb, var(--bg) 90%, transparent);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      font-family: 'Inter', sans-serif;
+    }
+    .paper-nav-inner {
+      max-width: 760px; margin: 0 auto; padding: 12px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.85rem;
+    }
+    .paper-nav a { color: var(--text-muted); }
+    .paper-nav a:hover { color: var(--text); text-decoration: none; }
+    .lang-links { display: flex; gap: 2px; margin-left: 12px; border-left: 1px solid var(--border); padding-left: 12px; }
+    .lang-links a {
+      font-size: 0.72rem; font-weight: 600; padding: 3px 6px; border-radius: 4px;
+      letter-spacing: 0.04em; color: var(--text-dim);
+    }
+    .lang-links a:hover { color: var(--text-muted); background: var(--bg-surface); }
+    .lang-links a.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+    /* Title block */
+    .title-block { text-align: center; padding: 80px 0 40px; }
+    .title-block h1 {
+      font-size: 1.9rem; font-weight: 700; line-height: 1.3;
+      letter-spacing: -0.01em; margin-bottom: 16px;
+    }
+    .authors { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 6px; }
+    .affiliation { color: var(--text-dim); font-size: 0.85rem; font-family: 'Inter', sans-serif; }
+    .paper-date { color: var(--text-dim); font-size: 0.85rem; margin-top: 8px; font-family: 'Inter', sans-serif; }
+
+    /* Abstract */
+    .abstract {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 24px 28px; margin: 32px 0 48px;
+    }
+    .abstract-label {
+      font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .abstract p { font-size: 0.95rem; line-height: 1.7; }
+
+    /* Sections */
+    h2 {
+      font-size: 1.4rem; font-weight: 700; margin: 48px 0 16px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 1.15rem; font-weight: 600; margin: 32px 0 12px; }
+    h4 { font-size: 1rem; font-weight: 600; margin: 24px 0 8px; }
+    p { margin-bottom: 14px; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-family: 'Inter', sans-serif; font-size: 0.85rem;
+    }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th {
+      font-weight: 600; font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-muted);
+      background: var(--bg-surface);
+    }
+    td { color: var(--text); }
+    .good { color: var(--good); font-weight: 600; }
+    .bad { color: var(--bad); font-weight: 600; }
+    .highlight-row { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    caption {
+      text-align: left; font-size: 0.85rem; color: var(--text-muted);
+      font-family: 'Inter', sans-serif; margin-bottom: 8px; font-style: italic;
+    }
+
+    /* Lists */
+    ul, ol { margin: 8px 0 16px 24px; }
+    li { margin-bottom: 6px; }
+
+    /* Code / technical */
+    code {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.88em;
+      background: var(--code-bg); padding: 2px 6px; border-radius: 4px;
+    }
+
+    /* Figures */
+    .figure {
+      margin: 28px 0; text-align: center;
+    }
+    .figure-caption {
+      font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;
+      font-family: 'Inter', sans-serif; font-style: italic;
+    }
+
+    /* Key finding boxes */
+    .finding {
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px; margin: 20px 0;
+      background: color-mix(in srgb, var(--accent) 5%, transparent);
+      font-size: 0.95rem;
+    }
+    .finding strong { color: var(--accent); }
+
+    /* Footer */
+    .paper-footer {
+      margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border);
+      font-family: 'Inter', sans-serif; font-size: 0.82rem; color: var(--text-dim);
+      text-align: center;
+    }
+    .paper-footer a { color: var(--text-muted); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      body { font-size: 16px; }
+      .title-block h1 { font-size: 1.5rem; }
+      .paper { padding: 40px 16px 60px; }
+      th, td { padding: 8px 10px; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="paper-nav">
+  <div class="paper-nav-inner">
+    <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <a href="https://huggingface.co/GOBA-AI-Labs">Models</a>
+      <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>
+      <div class="lang-links">
+        <a href="/paper/">EN</a>
+        <a href="/paper/ja/">JA</a>
+        <a href="/paper/zh-cn/">简</a>
+        <a href="/paper/zh-tw/">繁</a>
+        <a href="/paper/ko/" class="active">KO</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<article class="paper">
+
+<div class="title-block">
+  <h1>혼합 전문가 언어 모델을 위한 보정 기반 전문가 가지치기</h1>
+  <p class="authors">GOBA-AI-Labs</p>
+  <p class="affiliation">독립 연구</p>
+  <p class="paper-date">2026년 2월</p>
+</div>
+
+<div class="abstract">
+  <div class="abstract-label">초록</div>
+  <p>
+    본 연구에서는 추론 과정에서 측정된 중요도에 기반하여 전문가를 선택적으로 제거함으로써 혼합 전문가(Mixture-of-Experts, MoE) 언어 모델을 압축하는 프레임워크를 제시한다. 정적 모델 파라미터로부터 중요도를 추정하는 가중치 기반 지표와 달리, 본 보정 기반 접근법은 다양한 워크로드에 대한 실제 추론을 통해 전문가 점수를 산출하여, 보다 정확한 중요도 순위를 생성한다. 본 연구에서는 세 가지 상호 보완적 기법을 도입한다: 각 레이어가 민감도에 따라 서로 다른 수의 전문가를 유지할 수 있도록 하는 <em>레이어 적응형 전문가 할당</em>, 압축 과정에서 언어 특화 전문가를 탐지 및 보존하는 <em>언어 인식 전문가 보호</em>, 그리고 오래된 라우터 바이어스를 무력화하여 가지치기 절벽 지점에서 품질을 회복하는 무비용 후처리 단계인 <em>Zerobias 라우터 최적화</em>이다. 본 접근법을 세 가지 모델 계열에서 검증하였다: GPT-OSS-20B(무손실 압축, 10.4 GB에서 MMLU 78% 유지), Qwen3-30B-A3B(언어 인식 가지치기, 14 GB에서 사고 모드 시 MMLU 79%), Qwen3-Coder-Next 80B(50% 가지치기, 24.4 GB에서 MMLU 72%). 모든 모델에서 품질이 좁은 가지치기 범위 내에서 유지에서 붕괴로 급격히 전환되는 보편적 가지치기 절벽 현상을 확인하였으며, 전문가 중요도 분포의 지니 계수가 절벽의 급격함을 예측함을 보인다. 본 프레임워크는 GPU 훈련이 불필요하고, 기울기 계산이 필요 없으며, 소비자용 하드웨어에서 1시간 이내에 완료된다.
+  </p>
+</div>
+
+<!-- ================================================================ -->
+<h2>1. 서론</h2>
+
+<p>
+  혼합 전문가(MoE) 언어 모델은 토큰당 전체 파라미터의 일부만을 활성화함으로써 최첨단 수준의 품질을 달성한다. DeepSeek-V3(총 671B, 활성 37B), Qwen3-Coder-Next(총 80B, 토큰당 활성 ~3B), GPT-OSS-20B(총 21B, 활성 3.6B) 등 최신 모델들은 MoE 아키텍처가 밀집(dense) 모델에 비해 훨씬 적은 추론 비용으로 동등하거나 우수한 성능을 낼 수 있음을 보여준다. 그러나 이들의 총 파라미터 수&mdash;양자화 후에도 수십에서 수백 기가바이트에 달하는&mdash;는 소비자용 하드웨어의 메모리 용량을 초과한다.
+</p>
+
+<p>
+  기존 압축 기법들은 크기 문제를 다루지만 MoE 모델이 제시하는 구조적 기회를 활용하지 못한다. 훈련 후 양자화(GPTQ, AWQ, GGUF Q4)는 모든 파라미터에 대해 정밀도를 균일하게 낮추어 모델을 단일 블록으로 취급한다. 지식 증류는 더 작은 학생 모델을 생성할 수 있지만 비용이 많이 드는 재훈련이 필요하다. 두 방법 모두 MoE를 밀집 모델과 구별하는 근본적 특성&mdash;기능적 기여도에 따라 선택적으로 유지하거나 제거할 수 있는 이산적이고 독립적으로 파라미터화된 전문가 서브네트워크의 존재&mdash;을 활용하지 않는다.
+</p>
+
+<p>
+  본 연구에서는 <em>보정 기반 전문가 가지치기</em>를 제안한다. 대표적인 워크로드에 대한 실제 추론을 통해 전문가 중요도를 측정한 후, 각 레이어에서 가장 중요도가 낮은 전문가를 제거하는 방식이다. 이 방법은 양자화된 GGUF 모델 파일에 직접 적용되며, 역양자화, 기울기 계산, 재훈련이 불필요하다. 출력은 레이어당 전문가 수가 감소된 유효한 GGUF 파일로, 즉시 추론에 사용할 수 있다.
+</p>
+
+<p>본 연구의 기여는 다음과 같다:</p>
+<ol>
+  <li><strong>보정 기반 중요도 평가</strong>: 가중치 기반 지표를 현저히 능가하는 성능(MMLU +15pp, 일본어 태스크에서 +20pp).</li>
+  <li><strong>레이어 적응형 전문가 할당</strong>: 각 레이어가 민감도에 따라 동적으로 결정된 수의 전문가를 유지하여 품질을 보존.</li>
+  <li><strong>언어 인식 전문가 보호</strong>: 언어 특화 전문가를 탐지 및 보존하여 시장별 압축을 가능하게 함.</li>
+  <li><strong>Zerobias 라우터 최적화</strong>: 오래된 라우터 바이어스를 무력화하여 가지치기 절벽 지점에서 무비용으로 품질을 회복하고, 무손실 압축 한계를 확장.</li>
+  <li><strong>교차 모델 검증</strong>: 세 가지 아키텍처(레이어당 32, 128, 512 전문가)에서 가지치기 절벽이 보편적이며 예측 가능함을 입증.</li>
+</ol>
+
+<!-- ================================================================ -->
+<h2>2. 방법</h2>
+
+<h3>2.1 개요</h3>
+
+<p>
+  본 가지치기 파이프라인은 네 단계로 운영된다: (1) 보정 데이터 수집, (2) 중요도 평가, (3) 레이어 적응형 할당을 포함한 가지치기 계획 생성, (4) GGUF 파일 가지치기. 파이프라인은 양자화된 GGUF 모델과 보정 프롬프트 세트를 입력으로 받아, 레이어별로 가변적인 전문가 수를 가진 가지치기된 GGUF 파일을 생성한다.
+</p>
+
+<h3>2.2 보정 기반 중요도 평가</h3>
+
+<p>
+  각 보정 프롬프트를 전체 모델에 통과시키고, 모든 레이어와 전문가에 대해 라우터가 해당 전문가를 얼마나 자주 선택하는지, 선택 시 얼마나 강하게 선호하는지를 기록한다. 중요도 점수는 이 두 신호를 결합한다: 자주 활성화되면서 강하게 선호되는 전문가는 높은 점수를 받고, 드물게 사용되거나 약하게 게이팅되는 전문가는 낮은 점수를 받는다.
+</p>
+
+<p>
+  보정 세트는 가지치기된 모델이 처리할 것으로 예상되는 워크로드를 포괄해야 한다. 범용 압축의 경우, 코드 생성, 수학적 추론, 사실적 회상, 자연어 질의응답을 포함하는 프롬프트를 사용한다. 언어별 압축의 경우, 대상 언어의 프롬프트를 추가한다.
+</p>
+
+<div class="finding">
+  <strong>주요 발견:</strong> 보정 기반 평가는 가중치 기반 평가를 현저히 능가한다. Qwen3-30B-A3B에서 80% 전문가 유지 시, 보정 기반은 MMLU 74%를 달성하는 반면 가중치 기반은 60%에 그친다(+15pp 차이). 일본어 평가에서는 보정 기반이 85%, 가중치 기반이 65%를 달성하였다(+20pp). 가중치 기반 평가는 추론 품질을 최적화하지 못하는 근본적으로 다른 전문가 유지 집합을 산출한다.
+</div>
+
+<h3>2.3 레이어 적응형 전문가 할당</h3>
+
+<p>
+  MoE 모델의 모든 레이어가 전문가 제거에 동일하게 민감한 것은 아니다. 일부 레이어는 고도로 전문화된 전문가를 가지고 있어 하나라도 제거하면 상당한 품질 저하가 발생하는 반면, 다른 레이어는 안전하게 제거할 수 있는 중복 전문가를 보유하고 있다. 본 레이어 적응형 접근법은 레이어별 중요도 분포를 계산하고, 유지되는 전문가와 제거되는 전문가 사이의 측정된 중요도 격차에 따라 각 레이어에 서로 다른 유지 수를 할당한다.
+</p>
+
+<p>
+  이를 통해 일부 레이어는 거의 모든 전문가를 유지하고 다른 레이어는 상당수가 제거된 모델이 생성된다. 결과 GGUF 파일은 가변적인 <code>experts_per_layer</code> 메타데이터 필드를 가지며, 표준 추론 엔진(llama.cpp)은 현재 이를 지원하지 않는다. 이러한 가변 전문가 모델을 처리하기 위해 오픈소스 Rust 추론 엔진인 <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>을 개발하였다. 균일한 전문가 수를 가진 모델(예: GPT-OSS-20B를 전 레이어에서 32에서 28 전문가로 가지치기한 경우)은 llama.cpp와 호환된다.
+</p>
+
+<h3>2.4 언어 인식 전문가 보호</h3>
+
+<p>
+  충분한 전문가 수를 가진 MoE 모델은 훈련 과정에서 언어 특화 전문가를 발달시킨다. Qwen3-30B-A3B(레이어당 128 전문가)에서는 다국어 보정 프롬프트에 대한 차등 빈도 분석을 통해 30개의 일본어 전문 전문가와 15개의 영어 전문 전문가를 식별하였다. 반면, GPT-OSS-20B(레이어당 32 전문가)는 거의 균일한 라우팅(Gini = 0.041)을 보이며 언어 특화가 없고, GLM-5(레이어당 256 전문가)는 더욱 강한 특화(일본어 전문가 15개, Gini = 0.444)를 나타낸다.
+</p>
+
+<div class="finding">
+  <strong>전문가 수가 언어 특화를 지배한다:</strong> 32 전문가 &rarr; 0 언어 전문가(Gini 0.041); 128 전문가 &rarr; 30 전문가(Gini 0.233); 256 전문가 &rarr; 15 전문가(Gini 0.444). 전문가 수가 많은 모델일수록 언어별 라우팅을 포함하여 더 명확한 기능적 특화를 발달시킨다.
+</div>
+
+<p>
+  시장별 압축(예: 일본 시장)의 경우, 감지된 언어 전문 전문가를 전역 중요도 점수와 관계없이 가지치기로부터 보호한다. 이를 통해 공격적인 압축이 적용되더라도 언어 능력이 보존된다.
+</p>
+
+<h3>2.5 Zerobias 라우터 최적화</h3>
+
+<p>
+  MoE 라우터는 전체 전문가 세트로 사전 훈련 과정에서 보정된 학습된 바이어스 항을 포함한다. 가지치기 후 이러한 바이어스는 잘못 보정될 수 있다: 이전에 토큰을 현재 부재한 전문가로 유도하던 바이어스가 라우팅 공백을 생성하고, 나머지 전문가의 바이어스는 축소된 세트에서의 상대적 중요도를 더 이상 반영하지 못한다.
+</p>
+
+<p>
+  Zerobias는 모든 라우터 바이어스를 0으로 설정하여 라우터가 입력 의존적 라우팅 가중치에만 의존하도록 강제한다. 이는 무비용 후처리 단계로&mdash;GGUF 파일의 바이어스 텐서 수정 외에 훈련이나 연산이 필요하지 않다.
+</p>
+
+<div class="finding">
+  <strong>Zerobias는 절벽에 특화된다:</strong> 가지치기 절벽(GPT-OSS-20B 27/32 전문가)에서 Zerobias는 MMLU +9pp를 회복한다(68% &rarr; 77%), 안전 작동점(28/32 = 78%)에 근접한다. 그러나 잘 보정된 28/32 지점에서 Zerobias는 유해하다(&minus;14pp). 원래 바이어스가 여전히 유용한 라우팅 정보를 인코딩하고 있기 때문이다. Zerobias는 원래 바이어스가 모델의 중복 여유를 넘어선 가지치기로 인해 잘못 보정된 경우에만 유효하다.
+</div>
+
+<!-- ================================================================ -->
+<h2>3. 실험 결과</h2>
+
+<h3>3.1 GPT-OSS-20B: 무손실 압축</h3>
+
+<p>
+  GPT-OSS-20B는 레이어당 32 전문가, top-2 시그모이드 라우팅, MXFP4 형식을 가진 21B 파라미터 MoE 모델이다. 이 모델은 의미 있는 레이어 적응형 할당을 수행하기에는 전문가 수가 너무 적으므로 균일 가지치기(각 레이어에서 동일한 수의 전문가 제거)를 사용한다.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>표 1: GPT-OSS-20B 가지치기 결과 (Q4_K_M, MMLU 100문항 0-shot, GSM8K 50문항 0-shot)</caption>
+  <tr><th>구성</th><th>크기</th><th>레이어당 전문가</th><th>MMLU</th><th>GSM8K</th><th>HumanEval</th></tr>
+  <tr><td>원본</td><td>11.67 GB</td><td>32</td><td>78%</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr class="highlight-row"><td><strong>가지치기 28/32</strong></td><td><strong>10.40 GB</strong></td><td><strong>28</strong></td><td class="good"><strong>78%</strong></td><td class="good"><strong>92%</strong></td><td class="good"><strong>78%</strong></td></tr>
+  <tr><td>가지치기 27/32</td><td>~10.1 GB</td><td>27</td><td class="bad">68%</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr class="highlight-row"><td><strong>27/32 + Zerobias</strong></td><td><strong>~9.4 GB</strong></td><td><strong>27</strong></td><td class="good"><strong>77%</strong></td><td><strong>84%</strong></td><td>&mdash;</td></tr>
+  <tr><td>가지치기 26/32</td><td>~9.7 GB</td><td>26</td><td>69%</td><td>&mdash;</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  28/32 모델은 <strong>무손실 압축</strong>을 달성한다: MMLU 78%(원본과 동일), GSM8K 92%(46/50), HumanEval 78%(39/50). 11.67 GB에서 10.40 GB로의 파일 크기 감소(&minus;10.9%)는 미미하지만, 품질 비용은 전혀 없다.
+</p>
+
+<p>
+  27/32 전문가에서 급격한 <strong>가지치기 절벽</strong>이 나타난다: 레이어당 전문가 하나를 제거하는 것만으로 MMLU가 78%에서 68%로 하락한다(&minus;10pp). Zerobias를 적용하면 이 손실의 대부분을 회복하여(77%, 원본 대비 &minus;1pp) 준무손실 수준의 9.4 GB 모델을 생성한다. 주목할 점은 Zerobias 없는 26/32의 점수가 69%로, Zerobias 없는 27/32(68%)보다 높다는 것이다&mdash;이는 절벽이 28&rarr;27 전환에 집중된 계단 함수임을 보여준다.
+</p>
+
+<h3>3.2 Qwen3-30B-A3B: 언어 인식 가지치기</h3>
+
+<p>
+  Qwen3-30B-A3B는 48개 레이어에 걸쳐 레이어당 128 전문가를 가진 30B 파라미터 MoE 모델이다. 더 많은 전문가를 보유함으로써 레이어 적응형 할당과 언어 인식 보호가 효과적이 된다.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>표 2: Qwen3-30B-A3B 가지치기 곡선 (Q4_K_M, MMLU 100문항)</caption>
+  <tr><th>구성</th><th>크기</th><th>유지율</th><th>MMLU</th><th>비고</th></tr>
+  <tr><td>원본</td><td>17.3 GB</td><td>100%</td><td>77%</td><td>&mdash;</td></tr>
+  <tr><td>가지치기 90%</td><td>15.6 GB</td><td>90%</td><td>73%</td><td>&minus;4pp</td></tr>
+  <tr class="highlight-row"><td><strong>가지치기 80% (일본어 인식)</strong></td><td><strong>14.0 GB</strong></td><td><strong>80%</strong></td><td class="good"><strong>79% (사고 모드 ON)</strong></td><td><strong>JA 90%</strong></td></tr>
+  <tr><td>가지치기 70%</td><td>12.3 GB</td><td>70%</td><td class="bad">51%</td><td>절벽 (&minus;26pp)</td></tr>
+  <tr><td>가지치기 60%</td><td>&mdash;</td><td>60%</td><td class="bad">붕괴</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  언어 인식 일본어 전문가 보호가 적용된 80% 유지 모델(14.0 GB)은 MMLU 79%(사고 모드 활성화 시), GSM8K 92%, 일본어 품질 90%를 달성한다. 이는 언어 인식 가지치기가 <strong>압축과 다국어 품질 보존을 동시에</strong> 달성할 수 있음을 보여준다.
+</p>
+
+<p>
+  80%와 70% 유지율 사이에 급격한 절벽이 나타난다: MMLU가 72%에서 51%로 하락하며(&minus;21pp), 추가 가지치기는 완전한 붕괴를 초래한다. 이는 80% 유지(14 GB)가 이 모델의 실질적 하한선임을 확립한다.
+</p>
+
+<h4>보정 기반 vs. 가중치 기반 평가</h4>
+
+<div class="table-wrap">
+<table>
+  <caption>표 3: 중요도 평가 방법 비교 (30B-A3B, 80% 유지)</caption>
+  <tr><th>방법</th><th>MMLU</th><th>일본어</th><th>GSM8K</th></tr>
+  <tr class="highlight-row"><td><strong>보정 기반 + 일본어 보호</strong></td><td class="good"><strong>74%</strong></td><td class="good"><strong>85%</strong></td><td class="good"><strong>92%</strong></td></tr>
+  <tr><td>가중치 기반 + 일본어 보호</td><td class="bad">60%</td><td class="bad">65%</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  보정 기반 평가는 동일한 유지율에서 MMLU +14pp, 일본어 평가 +20pp으로 가중치 기반 평가를 능가한다. 두 방법은 근본적으로 다른 전문가 유지 집합을 산출한다&mdash;가중치 노름은 추론 시의 중요도를 예측하지 못한다.
+</p>
+
+<h3>3.3 Qwen3-Coder-Next 80B: 심층 가지치기</h3>
+
+<p>
+  Qwen3-Coder-Next는 48개 레이어에 걸쳐 레이어당 512 전문가를 가진 80B 파라미터 MoE 모델이다(토큰당 활성 ~3B). 많은 전문가 수는 공격적인 레이어 적응형 가지치기를 가능하게 한다.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>표 4: Qwen3-Coder-Next 80B 가지치기 (Q4_K_M, MMLU 100문항)</caption>
+  <tr><th>구성</th><th>크기</th><th>유지율</th><th>MMLU</th><th>기타</th></tr>
+  <tr><td>원본 Q4</td><td>~48 GB</td><td>100%</td><td>77%</td><td>HumanEval 74%</td></tr>
+  <tr><td>v7 (44% 가지치기)</td><td>27.68 GB</td><td>56%</td><td>70%</td><td>HumanEval 72%, LCB Easy 83%</td></tr>
+  <tr class="highlight-row"><td><strong>50% 가지치기</strong></td><td><strong>24.4 GB</strong></td><td><strong>50%</strong></td><td class="good"><strong>72%</strong></td><td>&mdash;</td></tr>
+  <tr><td>55% 가지치기</td><td>~20 GB</td><td>45%</td><td class="bad">60%</td><td>절벽 (&minus;12pp)</td></tr>
+  <tr><td>65% 가지치기</td><td>~17.9 GB</td><td>35%</td><td class="bad">무작위</td><td>완전 붕괴</td></tr>
+</table>
+</div>
+
+<p>
+  50% 가지치기 모델(24.4 GB)은 MMLU 72%를 달성하여&mdash;원본 품질의 93.5%를 유지하면서 24 GB 소비자 하드웨어 메모리에 적합하다. 이는 동일 모델의 Q2 양자화와 비교할 때 주목할 만하다. Q2 양자화는 유사한 파일 크기(~25&ndash;28 GB)를 생성하지만, 모든 가중치에 대한 균일한 정밀도 손실로 인해 MMLU 55&ndash;60%로 추정된다.
+</p>
+
+<p>
+  50%에서 45% 유지율 사이에 절벽이 나타나며(&minus;12pp), 35% 유지율에서는 무작위 출력이 생성된다. 50% 유지율이 이 모델의 최대 가지치기 깊이이다.
+</p>
+
+<h3>3.4 전문가 가지치기 vs. 양자화</h3>
+
+<div class="table-wrap">
+<table>
+  <caption>표 5: 유사한 크기에서의 전문가 가지치기와 공격적 양자화 비교</caption>
+  <tr><th>접근법</th><th>목표 크기</th><th>방법</th><th>잔여 정밀도</th><th>품질 영향</th></tr>
+  <tr class="highlight-row"><td><strong>전문가 가지치기</strong></td><td>24.4 GB</td><td>전문가 50% 제거</td><td class="good">Q4 전체 (4비트)</td><td class="good">MMLU 72%</td></tr>
+  <tr><td>Q2 양자화</td><td>~25&ndash;28 GB</td><td>모든 가중치를 2비트로 축소</td><td class="bad">2비트</td><td class="bad">MMLU ~55&ndash;60%</td></tr>
+</table>
+</div>
+
+<p>
+  전문가 가지치기와 양자화는 직교하는 압축 기법이다. 전문가 가지치기는 전체 전문가 서브네트워크를 제거하면서 나머지 전문가에 대해서는 완전한 양자화 정밀도를 유지한다. 양자화는 모든 파라미터에 대해 정밀도를 균일하게 감소시킨다. 동일한 파일 크기에서 전문가 가지치기가 현저히 높은 품질을 달성하는데, 이는 유지된 전문가가 원래 정밀도로 작동하는 반면, 공격적 양자화는 모든 가중치를 열화시키기 때문이다.
+</p>
+
+<p>
+  나아가 전문가 가지치기는 이미 양자화된 모델 위에 적용할 수 있어(본 연구에서 Q4_K_M GGUF 파일에 대해 수행한 바와 같이), 두 기법을 조합할 수 있다: 먼저 가중치 수준 압축을 위한 양자화, 이후 구조적 압축을 위한 전문가 가지치기.
+</p>
+
+<!-- ================================================================ -->
+<h2>4. 교차 모델 발견</h2>
+
+<h3>4.1 보편적 가지치기 절벽</h3>
+
+<p>
+  세 가지 모델 계열 모두 급격한 가지치기 절벽&mdash;좁은 가지치기 범위 내에서 품질이 완전 보존에서 완전 파괴로 전환되는 현상&mdash;을 보인다. 이는 점진적 열화가 아닌 상전이이다.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>표 6: 모델 계열별 가지치기 절벽 특성</caption>
+  <tr><th>모델</th><th>레이어당 전문가</th><th>안전 가지치기</th><th>절벽</th><th>Gini</th></tr>
+  <tr><td>GPT-OSS-20B</td><td>32</td><td>4 전문가 (~12.5%)</td><td>28 &rarr; 27 (&minus;10pp)</td><td>0.041</td></tr>
+  <tr><td>Qwen3-30B-A3B</td><td>128</td><td>~26 전문가 (~20%)</td><td>80% &rarr; 70% (&minus;21pp)</td><td>0.233</td></tr>
+  <tr><td>Qwen3-80B</td><td>512</td><td>~256 전문가 (~50%)</td><td>50% &rarr; 45% (&minus;12pp)</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  통합적 예측 인자가 부상한다: 전문가 중요도 분포의 <strong>지니 계수</strong>가 절벽의 급격함을 예측한다. 낮은 지니 계수(거의 균일한 중요도, 예: GPT-OSS의 0.041)를 가진 모델은 모든 전문가가 실질적으로 기여하기 때문에 전문가당 더 급격한 절벽을 보인다. 높은 지니 계수(더 편향된 중요도)를 가진 모델은 절벽 전까지 더 깊은 가지치기가 가능하며 더 점진적인 열화를 보인다.
+</p>
+
+<h3>4.2 품질 열화 순서</h3>
+
+<p>
+  모든 가지치기 실험에서 가지치기가 증가함에 따라 일관된 능력 열화 순서가 관찰된다:
+</p>
+
+<ol>
+  <li><strong>코드 생성</strong>(가장 취약) &mdash; 가장 먼저 열화되며, 유효한 프로그램이 사라지기 전에 의사 코드를 생성</li>
+  <li><strong>산술</strong> &mdash; 상전이와 유사한 오류 발생(예: 15+27=45)</li>
+  <li><strong>추론</strong> &mdash; 논리적 일관성 저하</li>
+  <li><strong>사실적 지식</strong>(가장 견고) &mdash; 가장 마지막에 열화되며, 다수의 전문가에 분산 저장</li>
+</ol>
+
+<p>
+  이 순서는 보정 설계에 중요한 의미를 갖는다: 보정 세트가 코드 생성(가장 취약한 능력)을 포괄하도록 하는 것이 핵심이며, 코드 전용 평가만이 Q&A 전용 테스트에서는 보이지 않는 실패 모드를 드러낸다.
+</p>
+
+<!-- ================================================================ -->
+<h2>5. 주요 부정적 결과</h2>
+
+<p>
+  22개 연구 단계에 걸쳐 성공하지 못한 수많은 접근법을 체계적으로 평가하였다. 향후 연구를 위한 경계 조건으로서 가장 중요한 부정적 결과를 요약한다.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>표 7: 주요 부정적 결과 요약</caption>
+  <tr><th>접근법</th><th>결과</th><th>핵심 통찰</th></tr>
+  <tr>
+    <td>Gate L2 노름 가지치기 (REAP)</td>
+    <td class="bad">HumanEval 70% at 50%</td>
+    <td>정적 가중치 지표는 실패; 보정 기반 평가가 필요</td>
+  </tr>
+  <tr>
+    <td>가중치 기반 중요도</td>
+    <td class="bad">MMLU 60% (vs 보정 74%)</td>
+    <td>가중치 노름은 추론 시 중요도를 예측하지 못함</td>
+  </tr>
+  <tr>
+    <td>균일 가지치기 비율</td>
+    <td class="bad">80B MMLU 64%</td>
+    <td>레이어 적응형 할당이 품질에 핵심적</td>
+  </tr>
+  <tr>
+    <td>영어 최적화 강제 페널티</td>
+    <td class="bad">MMLU 58%</td>
+    <td>언어 전문가도 STEM 추론에 기여</td>
+  </tr>
+  <tr>
+    <td>라우팅 부스트 + 가지치기</td>
+    <td class="bad">MMLU 56% (&minus;21pp)</td>
+    <td>부스트와 가지치기 계획을 공동으로 계산해야 함</td>
+  </tr>
+  <tr>
+    <td>Expert-as-Adapter (KD)</td>
+    <td class="bad">레이어 MSE &minus;15%, E2E &minus;2pp</td>
+    <td>레이어 수준의 개선 &ne; 종단간 개선</td>
+  </tr>
+  <tr>
+    <td>TinyLoRA (13 파라미터)</td>
+    <td class="bad">MMLU &minus;4pp (절벽에서)</td>
+    <td>미세 파라미터 조정으로는 MoE 회복에 불충분</td>
+  </tr>
+  <tr>
+    <td>GRPO 라우터 훈련</td>
+    <td class="bad">MMLU 67% (&minus;5pp)</td>
+    <td>기울기 기반 바이어스 최적화가 Zerobias보다 열등</td>
+  </tr>
+  <tr>
+    <td>Zerobias 반복 가지치기</td>
+    <td class="bad">26/32: 65% (&minus;4pp)</td>
+    <td>Zerobias는 절벽에 특화; 절벽 너머에서는 유해</td>
+  </tr>
+  <tr>
+    <td>밀집 SLM 가지치기 (4B)</td>
+    <td class="bad">FFN 25%: 붕괴</td>
+    <td>밀집 모델은 전문가 수준의 중복성 부족; 압축에서 MoE &gg; Dense</td>
+  </tr>
+  <tr>
+    <td>MoE abliteration</td>
+    <td class="bad">최대 일관성 56%</td>
+    <td>안전성 행동이 분산되어 있으며 전문가에 국소화되지 않음</td>
+  </tr>
+</table>
+</div>
+
+<p>
+  <strong>교차적 교훈:</strong> 모든 부정적 결과에서 가장 일관된 발견은 <strong>가지치기 후 품질에서 전문가 용량이 아닌 라우터 바이어스 보정이 지배적 요인</strong>이라는 것이다. Expert-as-Adapter는 MSE 15% 감소를 달성하지만 종단간으로는 &minus;2pp이다. TinyLoRA와 GRPO 라우터 훈련 모두 품질을 저하시킨다. Zerobias(절벽 지점에서)와 보정 기반 가지치기(절벽을 회피하는)만이 긍정적 결과를 산출한다. 이는 토큰을 올바르게 분배하는 라우터의 능력을 보존하는 것이 개별 전문가의 표현 용량보다 더 중요함을 시사한다.
+</p>
+
+<!-- ================================================================ -->
+<h2>6. 추론 엔진: moe-stream</h2>
+
+<p>
+  레이어 적응형 가지치기는 레이어별로 서로 다른 전문가 수를 가진 모델을 생성하며, 표준 추론 엔진(llama.cpp)은 이를 지원하지 않는다. 이러한 가변 전문가 모델을 처리하기 위해 오픈소스 Rust 추론 엔진인 <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>을 개발하였다.
+</p>
+
+<p>주요 기능:</p>
+<ul>
+  <li><strong>세 가지 추론 모드</strong>: GPU 상주(모델 &lt; RAM 80%), GPU 하이브리드(RAM 80&ndash;90%), SSD 스트리밍(&gt; RAM 90%). 모델 크기와 가용 메모리에 따라 자동 선택.</li>
+  <li><strong>SSD 스트리밍</strong>: NVMe SSD에서 필요 시 전문가 가중치를 스트리밍하여 RAM보다 큰 모델을 실행. 24 GB 하드웨어에서 48 GB 모델 기준 ~2 tok/s.</li>
+  <li><strong>Q4 양자화 행렬 곱셈</strong>: 역양자화를 건너뛰고 Q4 가중치에서 직접 연산하여 +79% 속도 향상(1.16 &rarr; 2.07 tok/s).</li>
+  <li><strong>Metal GPU 연산</strong>: Apple Silicon에서 하드웨어 가속 추론(GPU 상주 모델 기준 ~55 tok/s).</li>
+  <li><strong>가변 전문가 수</strong>: GGUF 파일의 <code>experts_per_layer</code> 메타데이터 완전 지원.</li>
+</ul>
+
+<p>
+  균일한 전문가 수를 가진 모델(GPT-OSS-20B 28/32, 27/32)은 llama.cpp와 moe-stream 모두에서 작동한다. 레이어 적응형 수를 가진 모델(Qwen3-30B-A3B JP-80pct, Qwen3-Coder-Next 50pct)은 moe-stream이 필요하다.
+</p>
+
+<!-- ================================================================ -->
+<h2>7. 결론</h2>
+
+<p>
+  본 연구에서는 전문가를 선택적으로 제거하여 MoE 언어 모델을 압축하는 실용적 프레임워크를 제시하였다. 핵심 원칙은 다음과 같다:
+</p>
+
+<ol>
+  <li><strong>가중치보다 보정.</strong> 실제 추론을 통한 전문가 중요도 측정은 정적 가중치 분석보다 극적으로 우수한 결과를 산출한다(MMLU +15pp, 언어 태스크에서 +20pp).</li>
+  <li><strong>레이어 적응형 할당.</strong> 각 레이어는 가지치기에 대한 민감도가 다르며, 적응형 할당은 가장 중요한 부분에서 품질을 보존한다.</li>
+  <li><strong>언어 인식 보호.</strong> 충분한 전문가 수를 가진 모델은 언어 특화 라우팅을 발달시키며, 이러한 전문가를 보호함으로써 품질 손실 없이 시장별 압축이 가능하다.</li>
+  <li><strong>절벽에서의 Zerobias.</strong> 가지치기가 절벽 지점에 도달했을 때, 라우터 바이어스를 0으로 설정하는 것이 가장 효과적인 회복 기법이다&mdash;기울기 기반 최적화, 전문가 어댑터 훈련, 미세 파라미터 조정을 능가한다.</li>
+  <li><strong>절벽은 보편적이다.</strong> 테스트된 모든 MoE 아키텍처는 전문가 중요도의 지니 계수로 예측 가능한 급격한 가지치기 절벽을 보인다.</li>
+</ol>
+
+<p>
+  실질적 성과는 MoE 모델을 소비자 하드웨어에서 최소한의 품질 손실로 크게 압축할 수 있다는 것이다: GPT-OSS-20B는 11.67에서 9.4 GB로(MMLU 77%), Qwen3-30B-A3B는 17.3에서 14.0 GB로(사고 모드 시 MMLU 79%), Qwen3-Coder-Next 80B는 ~48에서 24.4 GB로(MMLU 72%). 전체 파이프라인은 GPU 훈련이 불필요하고, 기울기 계산이 필요 없으며, 1시간 이내에 완료된다.
+</p>
+
+<!-- ================================================================ -->
+<h2>사전 가지치기 모델</h2>
+
+<p>모든 모델은 HuggingFace에서 이용 가능합니다:</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>모델</th><th>크기</th><th>MMLU</th><th>llama.cpp</th><th>moe-stream</th></tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-28x">PrunedHub GPT-OSS-20B-28x</a></td>
+    <td>10.4 GB</td><td>78%</td><td class="good">Yes</td><td class="good">Yes</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-27x-Zerobias">PrunedHub GPT-OSS-20B-27x-Zerobias</a></td>
+    <td>~9.4 GB</td><td>77%</td><td class="good">Yes</td><td class="good">Yes</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-30B-A3B-JP-80pct">PrunedHub Qwen3-30B-A3B-JP-80pct</a></td>
+    <td>14.0 GB</td><td>79%</td><td class="bad">No</td><td class="good">Required</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-Coder-Next-50pct">PrunedHub Qwen3-Coder-Next-50pct</a></td>
+    <td>24.4 GB</td><td>72%</td><td class="bad">No</td><td class="good">Required</td>
+  </tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2>인용</h2>
+
+<pre style="background:var(--code-bg);padding:16px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;overflow-x:auto;line-height:1.6;">@misc{goba-ai-labs-expert-pruning-2026,
+  title={Calibration-Based Expert Pruning for Mixture-of-Experts Language Models},
+  author={GOBA-AI-Labs},
+  year={2026},
+  url={https://goba-ai-labs.github.io/paper/}
+}</pre>
+
+<div class="paper-footer">
+  <p>
+    <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a> &middot;
+    <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a> &middot;
+    <a href="https://huggingface.co/GOBA-AI-Labs">HuggingFace</a> &middot;
+    <a href="https://ko-fi.com/gobaailabs">Ko-fi</a>
+  </p>
+  <p style="margin-top:8px;">2026년 2월</p>
+</div>
+
+</article>
+</body>
+</html>
