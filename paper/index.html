@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calibration-Based Expert Pruning for MoE Language Models — GOBA-AI-Labs</title>
+  <meta name="description" content="Expert pruning removes redundant MoE experts while preserving quality. Applied to 3 model families, achieving lossless to near-lossless compression on consumer hardware.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.png" type="image/png">
+  <style>
+    :root {
+      --bg: #FAFAF8;
+      --bg-surface: #F0EEEA;
+      --text: #1A1A1A;
+      --text-muted: #555;
+      --text-dim: #888;
+      --accent: #9C7D3C;
+      --accent-hover: #B08E48;
+      --border: #D8D4CE;
+      --good: #15803d;
+      --bad: #dc2626;
+      --code-bg: #F4F2EE;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0C0C0E;
+        --bg-surface: #161618;
+        --text: #F0EDE8;
+        --text-muted: #8A8680;
+        --text-dim: #5C5955;
+        --accent: #C4A265;
+        --accent-hover: #D4B478;
+        --border: #2A2926;
+        --good: #6ee7b7;
+        --bad: #fca5a5;
+        --code-bg: #1C1C1F;
+      }
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.8;
+      -webkit-font-smoothing: antialiased;
+      font-size: 17px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .paper { max-width: 760px; margin: 0 auto; padding: 60px 24px 100px; }
+
+    /* Header */
+    .paper-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: color-mix(in srgb, var(--bg) 90%, transparent);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      font-family: 'Inter', sans-serif;
+    }
+    .paper-nav-inner {
+      max-width: 760px; margin: 0 auto; padding: 12px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.85rem;
+    }
+    .paper-nav a { color: var(--text-muted); }
+    .paper-nav a:hover { color: var(--text); text-decoration: none; }
+
+    /* Title block */
+    .title-block { text-align: center; padding: 80px 0 40px; }
+    .title-block h1 {
+      font-size: 1.9rem; font-weight: 700; line-height: 1.3;
+      letter-spacing: -0.01em; margin-bottom: 16px;
+    }
+    .authors { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 6px; }
+    .affiliation { color: var(--text-dim); font-size: 0.85rem; font-family: 'Inter', sans-serif; }
+    .paper-date { color: var(--text-dim); font-size: 0.85rem; margin-top: 8px; font-family: 'Inter', sans-serif; }
+
+    /* Abstract */
+    .abstract {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 24px 28px; margin: 32px 0 48px;
+    }
+    .abstract-label {
+      font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .abstract p { font-size: 0.95rem; line-height: 1.7; }
+
+    /* Sections */
+    h2 {
+      font-size: 1.4rem; font-weight: 700; margin: 48px 0 16px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 1.15rem; font-weight: 600; margin: 32px 0 12px; }
+    h4 { font-size: 1rem; font-weight: 600; margin: 24px 0 8px; }
+    p { margin-bottom: 14px; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-family: 'Inter', sans-serif; font-size: 0.85rem;
+    }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th {
+      font-weight: 600; font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-muted);
+      background: var(--bg-surface);
+    }
+    td { color: var(--text); }
+    .good { color: var(--good); font-weight: 600; }
+    .bad { color: var(--bad); font-weight: 600; }
+    .highlight-row { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    caption {
+      text-align: left; font-size: 0.85rem; color: var(--text-muted);
+      font-family: 'Inter', sans-serif; margin-bottom: 8px; font-style: italic;
+    }
+
+    /* Lists */
+    ul, ol { margin: 8px 0 16px 24px; }
+    li { margin-bottom: 6px; }
+
+    /* Code / technical */
+    code {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.88em;
+      background: var(--code-bg); padding: 2px 6px; border-radius: 4px;
+    }
+
+    /* Figures */
+    .figure {
+      margin: 28px 0; text-align: center;
+    }
+    .figure-caption {
+      font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;
+      font-family: 'Inter', sans-serif; font-style: italic;
+    }
+
+    /* Key finding boxes */
+    .finding {
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px; margin: 20px 0;
+      background: color-mix(in srgb, var(--accent) 5%, transparent);
+      font-size: 0.95rem;
+    }
+    .finding strong { color: var(--accent); }
+
+    /* Footer */
+    .paper-footer {
+      margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border);
+      font-family: 'Inter', sans-serif; font-size: 0.82rem; color: var(--text-dim);
+      text-align: center;
+    }
+    .paper-footer a { color: var(--text-muted); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      body { font-size: 16px; }
+      .title-block h1 { font-size: 1.5rem; }
+      .paper { padding: 40px 16px 60px; }
+      th, td { padding: 8px 10px; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="paper-nav">
+  <div class="paper-nav-inner">
+    <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a>
+    <div style="display:flex;gap:16px;">
+      <a href="https://huggingface.co/GOBA-AI-Labs">Models</a>
+      <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>
+    </div>
+  </div>
+</nav>
+
+<article class="paper">
+
+<div class="title-block">
+  <h1>Calibration-Based Expert Pruning for Mixture-of-Experts Language Models</h1>
+  <p class="authors">GOBA-AI-Labs</p>
+  <p class="affiliation">Independent Research</p>
+  <p class="paper-date">February 2026</p>
+</div>
+
+<div class="abstract">
+  <div class="abstract-label">Abstract</div>
+  <p>
+    We present a framework for compressing Mixture-of-Experts (MoE) language models by selectively removing experts based on their measured importance during inference. Unlike weight-based metrics that estimate importance from static model parameters, our calibration-based approach scores experts through actual inference on diverse workloads, producing significantly more accurate importance rankings. We introduce three complementary techniques: <em>layer-adaptive expert allocation</em>, which allows each layer to retain a different number of experts based on its sensitivity; <em>language-aware expert protection</em>, which detects and preserves language-specialized experts during compression; and <em>zerobias router optimization</em>, a zero-cost post-processing step that recovers quality at pruning cliff points by neutralizing stale router biases. We validate our approach on three model families: GPT-OSS-20B (lossless compression, MMLU 78% preserved at 10.4 GB), Qwen3-30B-A3B (language-aware pruning, MMLU 79% with thinking at 14 GB), and Qwen3-Coder-Next 80B (50% pruning, MMLU 72% at 24.4 GB). Across all models, we identify a universal pruning cliff phenomenon where quality transitions sharply from preserved to destroyed within a narrow pruning range, and show that the Gini coefficient of expert importance distribution predicts cliff sharpness. Our framework requires no GPU training, no gradient computation, and completes in under one hour on consumer hardware.
+  </p>
+</div>
+
+<!-- ================================================================ -->
+<h2>1. Introduction</h2>
+
+<p>
+  Mixture-of-Experts (MoE) language models achieve frontier-level quality by activating only a fraction of their total parameters per token. Recent models such as DeepSeek-V3 (671B total, 37B active), Qwen3-Coder-Next (80B total, ~3B active per token), and GPT-OSS-20B (21B total, 3.6B active) demonstrate that MoE architectures can match or exceed dense models at a fraction of the inference cost. However, their total parameter count&mdash;often tens to hundreds of gigabytes in quantized form&mdash;places them beyond the memory capacity of consumer hardware.
+</p>
+
+<p>
+  Existing compression techniques address the size problem but not the structural opportunity MoE models present. Post-training quantization (GPTQ, AWQ, GGUF Q4) reduces precision uniformly across all parameters, treating the model as a monolithic block. Knowledge distillation can produce smaller student models but requires expensive retraining. Neither approach exploits the fundamental property that distinguishes MoE from dense models: the existence of discrete, independently-parameterized expert subnetworks that can be selectively retained or removed based on their functional contribution.
+</p>
+
+<p>
+  We propose <em>calibration-based expert pruning</em>: measuring expert importance through actual inference on representative workloads, then removing the least important experts from each layer. This operates directly on quantized GGUF model files, requiring no dequantization, no gradient computation, and no retraining. The output is a valid GGUF file with fewer experts per layer, ready for immediate inference.
+</p>
+
+<p>Our contributions are:</p>
+<ol>
+  <li><strong>Calibration-based importance scoring</strong> that significantly outperforms weight-based metrics (+15pp MMLU, +20pp on Japanese tasks).</li>
+  <li><strong>Layer-adaptive expert allocation</strong> that preserves quality by allowing each layer to retain a dynamically determined number of experts.</li>
+  <li><strong>Language-aware expert protection</strong> that detects and preserves language-specialized experts, enabling market-specific compression.</li>
+  <li><strong>Zerobias router optimization</strong> that recovers quality at pruning cliff points by neutralizing stale router biases, extending the lossless compression frontier at zero cost.</li>
+  <li><strong>Cross-model validation</strong> on three architectures (32, 128, and 512 experts per layer) demonstrating that pruning cliffs are universal and predictable.</li>
+</ol>
+
+<!-- ================================================================ -->
+<h2>2. Method</h2>
+
+<h3>2.1 Overview</h3>
+
+<p>
+  Our pruning pipeline operates in four stages: (1) calibration data collection, (2) importance scoring, (3) pruning plan generation with layer-adaptive allocation, and (4) GGUF file pruning. The pipeline takes a quantized GGUF model and a set of calibration prompts as input, and produces a pruned GGUF file with variable expert counts per layer.
+</p>
+
+<h3>2.2 Calibration-Based Importance Scoring</h3>
+
+<p>
+  Each calibration prompt is run through the full model, and for every layer and expert, we record how frequently the router selects that expert and how strongly it prefers it when selected. The importance score combines these two signals: an expert that is both frequently activated and strongly preferred receives a high score, while an expert that is rarely used or weakly gated receives a low score.
+</p>
+
+<p>
+  The calibration set should span the workloads the pruned model is expected to handle. For general-purpose compression, we use prompts covering code generation, mathematical reasoning, factual recall, and natural language question answering. For language-specific compression, we add prompts in the target language(s).
+</p>
+
+<div class="finding">
+  <strong>Key finding:</strong> Calibration-based scoring significantly outperforms weight-based scoring. On Qwen3-30B-A3B at 80% expert retention, calibration achieves MMLU 74% while weight-based scoring achieves only 60% (+15pp difference). On Japanese evaluation, calibration achieves 85% while weight-based achieves 65% (+20pp). Weight-based scoring produces fundamentally different expert retention sets that do not optimize for inference quality.
+</div>
+
+<h3>2.3 Layer-Adaptive Expert Allocation</h3>
+
+<p>
+  Not all layers in an MoE model are equally sensitive to expert removal. Some layers have highly specialized experts where removing any one causes significant quality loss, while others have redundant experts that can be safely removed. Our layer-adaptive approach computes per-layer importance distributions and allocates different retention counts to each layer based on the measured importance gap between retained and pruned experts.
+</p>
+
+<p>
+  This produces models where some layers retain nearly all experts while others have a significant number removed. The resulting GGUF files have a variable <code>experts_per_layer</code> metadata field that standard inference engines (llama.cpp) do not currently support. We developed <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>, an open-source Rust inference engine, to handle these variable-expert models. Models with uniform expert counts (e.g., GPT-OSS-20B pruned from 32 to 28 experts in all layers) remain compatible with llama.cpp.
+</p>
+
+<h3>2.4 Language-Aware Expert Protection</h3>
+
+<p>
+  MoE models with sufficient expert count develop language-specialized experts during training. In Qwen3-30B-A3B (128 experts per layer), we identified 30 Japanese-specialist and 15 English-specialist experts through differential frequency analysis across multilingual calibration prompts. In contrast, GPT-OSS-20B (32 experts per layer) shows near-uniform routing (Gini = 0.041) with no language specialization, while GLM-5 (256 experts per layer) exhibits even stronger specialization (15 Japanese specialists, Gini = 0.444).
+</p>
+
+<div class="finding">
+  <strong>Expert count governs language specialization:</strong> 32 experts &rarr; 0 language specialists (Gini 0.041); 128 experts &rarr; 30 specialists (Gini 0.233); 256 experts &rarr; 15 specialists (Gini 0.444). Models with more experts develop clearer functional specialization, including language-specific routing.
+</div>
+
+<p>
+  For market-specific compression (e.g., Japanese market), we protect detected language-specialist experts from pruning regardless of their global importance score. This ensures that language capabilities are preserved even when aggressive compression is applied.
+</p>
+
+<h3>2.5 Zerobias Router Optimization</h3>
+
+<p>
+  MoE routers contain learned bias terms that were calibrated during pre-training with the full expert set. After pruning, these biases may become miscalibrated: biases that previously directed tokens to now-absent experts create a routing vacuum, while remaining experts' biases no longer reflect their relative importance in the reduced set.
+</p>
+
+<p>
+  Zerobias sets all router biases to zero, forcing the router to rely solely on input-dependent routing weights. This is a zero-cost post-processing step&mdash;no training, no computation beyond modifying bias tensors in the GGUF file.
+</p>
+
+<div class="finding">
+  <strong>Zerobias is cliff-specific:</strong> At the pruning cliff (GPT-OSS-20B 27/32 experts), zerobias recovers +9pp MMLU (68% &rarr; 77%), nearly matching the safe operating point (28/32 = 78%). However, at the well-calibrated 28/32 point, zerobias is harmful (&minus;14pp), because the original biases still encode useful routing information. Zerobias is beneficial only when the original biases are miscalibrated due to pruning beyond the model's redundancy margin.
+</div>
+
+<!-- ================================================================ -->
+<h2>3. Results</h2>
+
+<h3>3.1 GPT-OSS-20B: Lossless Compression</h3>
+
+<p>
+  GPT-OSS-20B is a 21B-parameter MoE model with 32 experts per layer, top-2 sigmoid routing, and MXFP4 format. Uniform pruning (same number of experts removed from each layer) is used because the model has too few experts for meaningful layer-adaptive allocation.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Table 1: GPT-OSS-20B pruning results (Q4_K_M, MMLU 100Q 0-shot, GSM8K 50Q 0-shot)</caption>
+  <tr><th>Config</th><th>Size</th><th>Experts/Layer</th><th>MMLU</th><th>GSM8K</th><th>HumanEval</th></tr>
+  <tr><td>Original</td><td>11.67 GB</td><td>32</td><td>78%</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr class="highlight-row"><td><strong>Pruned 28/32</strong></td><td><strong>10.40 GB</strong></td><td><strong>28</strong></td><td class="good"><strong>78%</strong></td><td class="good"><strong>92%</strong></td><td class="good"><strong>78%</strong></td></tr>
+  <tr><td>Pruned 27/32</td><td>~10.1 GB</td><td>27</td><td class="bad">68%</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr class="highlight-row"><td><strong>27/32 + Zerobias</strong></td><td><strong>~9.4 GB</strong></td><td><strong>27</strong></td><td class="good"><strong>77%</strong></td><td><strong>84%</strong></td><td>&mdash;</td></tr>
+  <tr><td>Pruned 26/32</td><td>~9.7 GB</td><td>26</td><td>69%</td><td>&mdash;</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  The 28/32 model achieves <strong>lossless compression</strong>: MMLU 78% (identical to original), GSM8K 92% (46/50), and HumanEval 78% (39/50). The file size reduction from 11.67 GB to 10.40 GB (&minus;10.9%) is modest but comes at zero quality cost.
+</p>
+
+<p>
+  At 27/32 experts, a sharp <strong>pruning cliff</strong> appears: MMLU drops from 78% to 68% (&minus;10pp) with a single expert removed per layer. Applying zerobias recovers most of this loss (77%, &minus;1pp from original), producing a 9.4 GB model that is near-lossless. Notably, 26/32 without zerobias scores 69%&mdash;higher than 27/32 without zerobias (68%)&mdash;revealing that the cliff is a step function concentrated at the 28&rarr;27 transition.
+</p>
+
+<h3>3.2 Qwen3-30B-A3B: Language-Aware Pruning</h3>
+
+<p>
+  Qwen3-30B-A3B is a 30B-parameter MoE model with 128 experts per layer across 48 layers. With more experts, layer-adaptive allocation and language-aware protection become effective.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Table 2: Qwen3-30B-A3B pruning curve (Q4_K_M, MMLU 100Q)</caption>
+  <tr><th>Config</th><th>Size</th><th>Keep Rate</th><th>MMLU</th><th>Notes</th></tr>
+  <tr><td>Original</td><td>17.3 GB</td><td>100%</td><td>77%</td><td>&mdash;</td></tr>
+  <tr><td>Pruned 90%</td><td>15.6 GB</td><td>90%</td><td>73%</td><td>&minus;4pp</td></tr>
+  <tr class="highlight-row"><td><strong>Pruned 80% (JP-aware)</strong></td><td><strong>14.0 GB</strong></td><td><strong>80%</strong></td><td class="good"><strong>79% (think-ON)</strong></td><td><strong>JA 90%</strong></td></tr>
+  <tr><td>Pruned 70%</td><td>12.3 GB</td><td>70%</td><td class="bad">51%</td><td>Cliff (&minus;26pp)</td></tr>
+  <tr><td>Pruned 60%</td><td>&mdash;</td><td>60%</td><td class="bad">Collapse</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  The 80% retention model (14.0 GB) with language-aware Japanese expert protection achieves MMLU 79% (with thinking enabled), GSM8K 92%, and Japanese quality 90%. This demonstrates that language-aware pruning can <strong>simultaneously compress and preserve multilingual quality</strong>.
+</p>
+
+<p>
+  A sharp cliff appears between 80% and 70% retention: MMLU drops from 72% to 51% (&minus;21pp), with further pruning causing complete collapse. This establishes 80% retention (14 GB) as the practical lower bound for this model.
+</p>
+
+<h4>Calibration vs. Weight-Based Scoring</h4>
+
+<div class="table-wrap">
+<table>
+  <caption>Table 3: Importance scoring method comparison (30B-A3B, 80% retention)</caption>
+  <tr><th>Method</th><th>MMLU</th><th>Japanese</th><th>GSM8K</th></tr>
+  <tr class="highlight-row"><td><strong>Calibration-based + JA protect</strong></td><td class="good"><strong>74%</strong></td><td class="good"><strong>85%</strong></td><td class="good"><strong>92%</strong></td></tr>
+  <tr><td>Weight-based + JA protect</td><td class="bad">60%</td><td class="bad">65%</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  Calibration-based scoring outperforms weight-based scoring by +14pp on MMLU and +20pp on Japanese evaluation at the same retention level. The two methods produce fundamentally different expert retention sets&mdash;weight norms do not predict inference-time importance.
+</p>
+
+<h3>3.3 Qwen3-Coder-Next 80B: Deep Pruning</h3>
+
+<p>
+  Qwen3-Coder-Next is an 80B-parameter MoE model with 512 experts per layer across 48 layers (~3B active per token). The large expert count enables aggressive layer-adaptive pruning.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Table 4: Qwen3-Coder-Next 80B pruning (Q4_K_M, MMLU 100Q)</caption>
+  <tr><th>Config</th><th>Size</th><th>Keep Rate</th><th>MMLU</th><th>Other</th></tr>
+  <tr><td>Original Q4</td><td>~48 GB</td><td>100%</td><td>77%</td><td>HumanEval 74%</td></tr>
+  <tr><td>v7 (44% pruned)</td><td>27.68 GB</td><td>56%</td><td>70%</td><td>HumanEval 72%, LCB Easy 83%</td></tr>
+  <tr class="highlight-row"><td><strong>50% pruned</strong></td><td><strong>24.4 GB</strong></td><td><strong>50%</strong></td><td class="good"><strong>72%</strong></td><td>&mdash;</td></tr>
+  <tr><td>55% pruned</td><td>~20 GB</td><td>45%</td><td class="bad">60%</td><td>Cliff (&minus;12pp)</td></tr>
+  <tr><td>65% pruned</td><td>~17.9 GB</td><td>35%</td><td class="bad">Random</td><td>Complete collapse</td></tr>
+</table>
+</div>
+
+<p>
+  The 50% pruned model (24.4 GB) achieves MMLU 72%&mdash;93.5% of the original quality while fitting within 24 GB consumer hardware memory. This is notably better than Q2 quantization of the same model, which would produce a similar file size (~25&ndash;28 GB) but at estimated MMLU 55&ndash;60% due to uniform precision loss across all weights.
+</p>
+
+<p>
+  A cliff appears between 50% and 45% retention (&minus;12pp), with 35% retention producing random outputs. The 50% keep rate is the deepest viable compression for this model.
+</p>
+
+<h3>3.4 Expert Pruning vs. Quantization</h3>
+
+<div class="table-wrap">
+<table>
+  <caption>Table 5: Expert pruning compared to aggressive quantization at similar sizes</caption>
+  <tr><th>Approach</th><th>Target Size</th><th>Method</th><th>Remaining Precision</th><th>Quality Impact</th></tr>
+  <tr class="highlight-row"><td><strong>Expert Pruning</strong></td><td>24.4 GB</td><td>Remove 50% of experts</td><td class="good">Full Q4 (4-bit)</td><td class="good">MMLU 72%</td></tr>
+  <tr><td>Q2 Quantization</td><td>~25&ndash;28 GB</td><td>Reduce all weights to 2-bit</td><td class="bad">2-bit</td><td class="bad">MMLU ~55&ndash;60%</td></tr>
+</table>
+</div>
+
+<p>
+  Expert pruning and quantization are orthogonal compression techniques. Expert pruning removes entire expert subnetworks while preserving full quantization precision on the remaining experts. Quantization reduces precision uniformly across all parameters. At the same file size, expert pruning achieves significantly higher quality because retained experts operate at their original precision, whereas aggressive quantization degrades every weight.
+</p>
+
+<p>
+  Furthermore, expert pruning can be applied on top of already-quantized models (as we do with Q4_K_M GGUF files), making the two techniques composable: quantization first for weight-level compression, then expert pruning for structural compression.
+</p>
+
+<!-- ================================================================ -->
+<h2>4. Cross-Model Findings</h2>
+
+<h3>4.1 The Universal Pruning Cliff</h3>
+
+<p>
+  All three model families exhibit a sharp pruning cliff&mdash;a narrow range of pruning rates within which quality transitions from fully preserved to fully destroyed. This is not gradual degradation but a phase transition.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Table 6: Pruning cliff characteristics across model families</caption>
+  <tr><th>Model</th><th>Experts/Layer</th><th>Safe Pruning</th><th>Cliff</th><th>Gini</th></tr>
+  <tr><td>GPT-OSS-20B</td><td>32</td><td>4 experts (~12.5%)</td><td>28 &rarr; 27 (&minus;10pp)</td><td>0.041</td></tr>
+  <tr><td>Qwen3-30B-A3B</td><td>128</td><td>~26 experts (~20%)</td><td>80% &rarr; 70% (&minus;21pp)</td><td>0.233</td></tr>
+  <tr><td>Qwen3-80B</td><td>512</td><td>~256 experts (~50%)</td><td>50% &rarr; 45% (&minus;12pp)</td><td>&mdash;</td></tr>
+</table>
+</div>
+
+<p>
+  A unifying predictor emerges: the <strong>Gini coefficient</strong> of expert importance distribution predicts cliff sharpness. Models with low Gini (near-uniform importance, e.g., GPT-OSS at 0.041) exhibit sharper per-expert cliffs because every expert contributes substantially. Models with higher Gini (more skewed importance) exhibit more gradual degradation, allowing deeper pruning before the cliff.
+</p>
+
+<h3>4.2 Quality Degradation Order</h3>
+
+<p>
+  Across all pruning experiments, we observe a consistent ordering of capability degradation as pruning increases:
+</p>
+
+<ol>
+  <li><strong>Code generation</strong> (most fragile) &mdash; degrades first, producing pseudocode before valid programs disappear</li>
+  <li><strong>Arithmetic</strong> &mdash; phase-transition-like errors (e.g., 15+27=45)</li>
+  <li><strong>Reasoning</strong> &mdash; degraded logical coherence</li>
+  <li><strong>Factual knowledge</strong> (most robust) &mdash; last to degrade, distributed across many experts</li>
+</ol>
+
+<p>
+  This ordering is significant for calibration design: ensuring the calibration set covers code generation (the most fragile capability) is critical, as code-only evaluation reveals failure modes invisible to QA-only testing.
+</p>
+
+<!-- ================================================================ -->
+<h2>5. Selected Negative Results</h2>
+
+<p>
+  Over 22 research phases, we systematically evaluated numerous approaches that did not succeed. We summarize the most significant negative results as boundary conditions for future work.
+</p>
+
+<div class="table-wrap">
+<table>
+  <caption>Table 7: Summary of key negative results</caption>
+  <tr><th>Approach</th><th>Result</th><th>Key Insight</th></tr>
+  <tr>
+    <td>Gate L2 norm pruning (REAP)</td>
+    <td class="bad">HumanEval 70% at 50%</td>
+    <td>Static weight metrics fail; calibration-based scoring required</td>
+  </tr>
+  <tr>
+    <td>Weight-based importance</td>
+    <td class="bad">MMLU 60% (vs calib. 74%)</td>
+    <td>Weight norms do not predict inference-time importance</td>
+  </tr>
+  <tr>
+    <td>Uniform pruning ratio</td>
+    <td class="bad">80B MMLU 64%</td>
+    <td>Layer-adaptive allocation critical for quality</td>
+  </tr>
+  <tr>
+    <td>EN-optimized force-penalty</td>
+    <td class="bad">MMLU 58%</td>
+    <td>Language experts also contribute to STEM reasoning</td>
+  </tr>
+  <tr>
+    <td>Routing boost + pruning</td>
+    <td class="bad">MMLU 56% (&minus;21pp)</td>
+    <td>Boost and pruning plans must be jointly computed</td>
+  </tr>
+  <tr>
+    <td>Expert-as-Adapter (KD)</td>
+    <td class="bad">Layer MSE &minus;15%, E2E &minus;2pp</td>
+    <td>Layer-level improvement &ne; end-to-end improvement</td>
+  </tr>
+  <tr>
+    <td>TinyLoRA (13 params)</td>
+    <td class="bad">MMLU &minus;4pp at cliff</td>
+    <td>Micro-parameter tuning insufficient for MoE recovery</td>
+  </tr>
+  <tr>
+    <td>GRPO router training</td>
+    <td class="bad">MMLU 67% (&minus;5pp)</td>
+    <td>Gradient-based bias optimization underperforms zerobias</td>
+  </tr>
+  <tr>
+    <td>Zerobias iterative pruning</td>
+    <td class="bad">26/32: 65% (&minus;4pp)</td>
+    <td>Zerobias is cliff-specific; harmful beyond the cliff</td>
+  </tr>
+  <tr>
+    <td>Dense SLM pruning (4B)</td>
+    <td class="bad">FFN 25%: collapse</td>
+    <td>Dense models lack expert-level redundancy; MoE &gg; Dense for compression</td>
+  </tr>
+  <tr>
+    <td>MoE abliteration</td>
+    <td class="bad">Max consistency 56%</td>
+    <td>Safety behavior distributed, not expert-localized</td>
+  </tr>
+</table>
+</div>
+
+<p>
+  <strong>Cross-cutting lesson:</strong> The most consistent finding across all negative results is that <strong>router bias calibration&mdash;not expert capacity&mdash;is the dominant factor in post-pruning quality</strong>. Expert-as-Adapter achieves 15% MSE reduction but &minus;2pp end-to-end. TinyLoRA and GRPO router training both degrade quality. Only zerobias (at cliff points) and calibration-based pruning (avoiding the cliff) produce positive results. This implies that preserving the router's ability to distribute tokens correctly is more important than the representational capacity of any individual expert.
+</p>
+
+<!-- ================================================================ -->
+<h2>6. Inference: moe-stream</h2>
+
+<p>
+  Layer-adaptive pruning produces models with different expert counts per layer, which standard inference engines (llama.cpp) do not support. We developed <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a>, an open-source Rust inference engine that handles these variable-expert models.
+</p>
+
+<p>Key capabilities:</p>
+<ul>
+  <li><strong>Three inference modes</strong>: GPU-resident (models &lt; 80% RAM), GPU-hybrid (80&ndash;90% RAM), and SSD-streaming (&gt; 90% RAM). Mode is auto-selected based on model size and available memory.</li>
+  <li><strong>SSD streaming</strong>: Run models larger than RAM by streaming expert weights from NVMe SSD on demand. ~2 tok/s for a 48 GB model on 24 GB hardware.</li>
+  <li><strong>Q4 quantized matmul</strong>: Skip dequantization and compute directly on Q4 weights, providing +79% speedup (1.16 &rarr; 2.07 tok/s).</li>
+  <li><strong>Metal GPU compute</strong>: Hardware-accelerated inference on Apple Silicon (~55 tok/s for GPU-resident models).</li>
+  <li><strong>Variable expert counts</strong>: Full support for <code>experts_per_layer</code> metadata in GGUF files.</li>
+</ul>
+
+<p>
+  Models with uniform expert counts (GPT-OSS-20B 28/32, 27/32) work with both llama.cpp and moe-stream. Models with layer-adaptive counts (Qwen3-30B-A3B JP-80pct, Qwen3-Coder-Next 50pct) require moe-stream.
+</p>
+
+<!-- ================================================================ -->
+<h2>7. Conclusion</h2>
+
+<p>
+  We have presented a practical framework for compressing MoE language models by selectively removing experts. The key principles are:
+</p>
+
+<ol>
+  <li><strong>Calibration over weights.</strong> Measuring expert importance through actual inference produces dramatically better results than static weight analysis (+15pp MMLU, +20pp on language tasks).</li>
+  <li><strong>Layer-adaptive allocation.</strong> Each layer has different sensitivity to pruning; adaptive allocation preserves quality where it matters most.</li>
+  <li><strong>Language-aware protection.</strong> Models with sufficient expert count develop language-specialized routing, and protecting these experts enables market-specific compression without quality loss.</li>
+  <li><strong>Zerobias at the cliff.</strong> When pruning reaches the cliff point, zeroing router biases is the most effective recovery technique&mdash;surpassing gradient-based optimization, expert adapter training, and micro-parameter tuning.</li>
+  <li><strong>The cliff is universal.</strong> All tested MoE architectures exhibit a sharp pruning cliff, predictable from the Gini coefficient of expert importance.</li>
+</ol>
+
+<p>
+  The practical outcome is that MoE models can be compressed significantly on consumer hardware with minimal quality loss: GPT-OSS-20B from 11.67 to 9.4 GB (MMLU 77%), Qwen3-30B-A3B from 17.3 to 14.0 GB (MMLU 79% with thinking), and Qwen3-Coder-Next 80B from ~48 to 24.4 GB (MMLU 72%). The entire pipeline requires no GPU training, no gradient computation, and completes in under one hour.
+</p>
+
+<!-- ================================================================ -->
+<h2>Pre-Pruned Models</h2>
+
+<p>All models are available on HuggingFace:</p>
+
+<div class="table-wrap">
+<table>
+  <tr><th>Model</th><th>Size</th><th>MMLU</th><th>llama.cpp</th><th>moe-stream</th></tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-28x">PrunedHub GPT-OSS-20B-28x</a></td>
+    <td>10.4 GB</td><td>78%</td><td class="good">Yes</td><td class="good">Yes</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-GPT-OSS-20B-27x-Zerobias">PrunedHub GPT-OSS-20B-27x-Zerobias</a></td>
+    <td>~9.4 GB</td><td>77%</td><td class="good">Yes</td><td class="good">Yes</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-30B-A3B-JP-80pct">PrunedHub Qwen3-30B-A3B-JP-80pct</a></td>
+    <td>14.0 GB</td><td>79%</td><td class="bad">No</td><td class="good">Required</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-Coder-Next-50pct">PrunedHub Qwen3-Coder-Next-50pct</a></td>
+    <td>24.4 GB</td><td>72%</td><td class="bad">No</td><td class="good">Required</td>
+  </tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2>Citation</h2>
+
+<pre style="background:var(--code-bg);padding:16px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;overflow-x:auto;line-height:1.6;">@misc{goba-ai-labs-expert-pruning-2026,
+  title={Calibration-Based Expert Pruning for Mixture-of-Experts Language Models},
+  author={GOBA-AI-Labs},
+  year={2026},
+  url={https://goba-ai-labs.github.io/paper/}
+}</pre>
+
+<div class="paper-footer">
+  <p>
+    <a href="https://goba-ai-labs.github.io">GOBA-AI-Labs</a> &middot;
+    <a href="https://github.com/GOBA-AI-Labs/moe-stream">moe-stream</a> &middot;
+    <a href="https://huggingface.co/GOBA-AI-Labs">HuggingFace</a> &middot;
+    <a href="https://ko-fi.com/gobaailabs">Ko-fi</a>
+  </p>
+  <p style="margin-top:8px;">February 2026</p>
+</div>
+
+</article>
+</body>
+</html>
