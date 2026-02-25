@@ -210,6 +210,45 @@ h2 {
 .model-stat-item .label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
 .model-stat-item .value { font-size: 0.95rem; font-weight: 600; }
 .model-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+.model-badge.expert-tuned { background: #3b1f7c; color: #c4b5fd; }
+.model-badge.new { background: #b45309; color: #fef3c7; animation: pulse-new 2s ease-in-out infinite; }
+.model-badge.mxmoe { background: #4c1d95; color: #ddd6fe; }
+@keyframes pulse-new { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+.model-card.featured { border: 1px solid var(--accent); box-shadow: 0 0 20px var(--glow); }
+
+/* Subsection title within models */
+.subsection-title {
+  margin-top: 64px; margin-bottom: 0;
+  font-size: 1.5rem;
+}
+
+/* Research highlights */
+.research-highlights {
+  margin-top: 64px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  transition: background 0.3s, border-color 0.3s;
+}
+.research-highlights h3 {
+  font-size: 1.1rem; font-weight: 600; margin-bottom: 20px; text-align: left;
+}
+.highlight-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+}
+.highlight-item {}
+.highlight-label {
+  display: inline-block;
+  font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--accent); margin-bottom: 6px;
+}
+.highlight-item p {
+  font-size: 0.85rem; color: var(--text-muted); line-height: 1.55;
+}
+@media (max-width: 640px) {
+  .highlight-grid { grid-template-columns: 1fr; }
+}
 
 /* ─── Technology ─────────────────────────────────────────────── */
 .technology {

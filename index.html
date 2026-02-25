@@ -56,11 +56,11 @@
     </div>
     <div class="hero-stat">
       <div class="stat">
-        <span class="stat-value">45 GB</span>
+        <span class="stat-value">16.8 GB</span>
         <span class="stat-arrow">&rarr;</span>
-        <span class="stat-value highlight">24 GB</span>
+        <span class="stat-value highlight">13.7 GB</span>
       </div>
-      <span class="stat-label" data-i18n="hero.stat">Qwen3-Coder-Next (80B) — 50% expert pruning, MMLU 72%</span>
+      <span class="stat-label" data-i18n="hero.stat">Qwen3.5-35B-A3B — 20% expert pruning, MMLU 80%, fits 24GB Mac GPU</span>
     </div>
   </div>
 </section>
@@ -69,8 +69,33 @@
 <section id="models" class="models">
   <div class="container">
     <h2 data-i18n="models.title">PrunedHub Models</h2>
-    <p class="section-desc" data-i18n="models.desc">Pruned MoE models ready to run. GPT-OSS models work with llama.cpp; Qwen3 models require moe-stream.</p>
+    <p class="section-desc" data-i18n="models.desc">8 pruned MoE models ready to run. All compatible with llama.cpp. Qwen3/3.5 also work with moe-stream.</p>
     <div class="model-grid">
+
+      <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3.5-35B-A3B-80pct" target="_blank" class="model-card featured">
+        <div class="model-badge new" data-i18n="model.new">NEW</div>
+        <h3>Qwen3.5-35B-A3B-80pct</h3>
+        <p class="model-base">Qwen/Qwen3.5-35B-A3B</p>
+        <div class="model-stats">
+          <div class="model-stat-item">
+            <span class="label">Size</span>
+            <span class="value">13.7 GB</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">MMLU</span>
+            <span class="value">80%</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">GSM8K</span>
+            <span class="value">82%</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">LCB Easy</span>
+            <span class="value">83%</span>
+          </div>
+        </div>
+        <p class="model-desc" data-i18n="model.qwen35.desc">DeltaNet hybrid, 256 experts. Pruned within 24h of release. Full GPU-resident on 24GB Mac. MMLU -1pp.</p>
+      </a>
 
       <a href="https://huggingface.co/goba-ai-labs/PrunedHub-GPT-OSS-20B-28x" target="_blank" class="model-card">
         <div class="model-badge lossless" data-i18n="model.lossless">Lossless</div>
@@ -160,7 +185,91 @@
         <p class="model-desc" data-i18n="model.zerobias.desc">Router optimization recovers quality at the pruning cliff. -1pp with 15.6% fewer experts.</p>
       </a>
 
+      <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-30B-A3B-EN-80pct-MxMoE" target="_blank" class="model-card">
+        <div class="model-badge mxmoe" data-i18n="model.mxmoe">MxMoE</div>
+        <h3>Qwen3-30B-EN-MxMoE</h3>
+        <p class="model-base">Qwen/Qwen3-30B-A3B</p>
+        <div class="model-stats">
+          <div class="model-stat-item">
+            <span class="label">Size</span>
+            <span class="value">13.5 GB</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">MMLU</span>
+            <span class="value">70%</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">GSM8K</span>
+            <span class="value">94%</span>
+          </div>
+        </div>
+        <p class="model-desc" data-i18n="model.enmxmoe.desc">EN-optimized pruning + mixed quantization (Q5K/Q4K/Q3K). 22% smaller, GSM8K 94%.</p>
+      </a>
+
+      <a href="https://huggingface.co/GOBA-AI-Labs/PrunedHub-Qwen3-30B-A3B-JP-80pct-MxMoE" target="_blank" class="model-card">
+        <div class="model-badge ja" data-i18n="model.japanese">Japanese</div>
+        <h3>Qwen3-30B-JP-MxMoE</h3>
+        <p class="model-base">Qwen/Qwen3-30B-A3B</p>
+        <div class="model-stats">
+          <div class="model-stat-item">
+            <span class="label">Size</span>
+            <span class="value">13.5 GB</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">MMLU</span>
+            <span class="value">73%</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">JA Quality</span>
+            <span class="value">85%</span>
+          </div>
+        </div>
+        <p class="model-desc" data-i18n="model.jpmxmoe.desc">JP language-aware pruning + MxMoE. GSM8K 96%, Japanese quality preserved.</p>
+      </a>
+
     </div>
+
+    <h2 class="subsection-title" data-i18n="models.goba.title">GOBA Models</h2>
+    <p class="section-desc" data-i18n="models.goba.desc">Domain-tuned models using our Expert-as-Adapter technique. Pruned expert slots repurposed for specialization.</p>
+    <div class="model-grid">
+
+      <a href="https://huggingface.co/GOBA-AI-Labs/GOBA-OLMoE-Expert-Tuned" target="_blank" class="model-card">
+        <div class="model-badge expert-tuned" data-i18n="model.experttuned">Expert Tuned</div>
+        <h3>OLMoE-1B-7B Expert Tuned</h3>
+        <p class="model-base">allenai/OLMoE-1B-7B</p>
+        <div class="model-stats">
+          <div class="model-stat-item">
+            <span class="label" data-i18n="model.olmoe.domains">Domains</span>
+            <span class="value">JA / Finance / Code</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">JMMLU</span>
+            <span class="value">+4.5pp</span>
+          </div>
+          <div class="model-stat-item">
+            <span class="label">HumanEval+</span>
+            <span class="value">+10pp</span>
+          </div>
+        </div>
+        <p class="model-desc" data-i18n="model.olmoe.desc">3 domain-tuned variants via Expert-as-Adapter. JA +4.5pp JMMLU, Code +10pp HumanEval+, Finance +16pp fraud detection.</p>
+      </a>
+
+    </div>
+
+    <div class="research-highlights">
+      <h3 data-i18n="models.research.title">Research Highlights</h3>
+      <div class="highlight-grid">
+        <div class="highlight-item">
+          <span class="highlight-label" data-i18n="models.research.80b">80B Code Generation Finding</span>
+          <p data-i18n="models.research.80b.desc">50% expert pruning preserves MMLU 76% but destroys code generation (HumanEval 0%). Code generation uses 84% of experts &mdash; a distributed capability that resists pruning.</p>
+        </div>
+        <div class="highlight-item">
+          <span class="highlight-label" data-i18n="models.research.qwen35">Qwen3.5-35B-A3B: Day-1 Pruning</span>
+          <p data-i18n="models.research.qwen35.desc">Pruned within 24 hours of release. 5 methods compared on 256-expert DeltaNet hybrid. Weight-based pruning wins: MMLU 80% (-1pp), LiveCodeBench Easy 83.1% (142 problems). Published on HuggingFace.</p>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -222,6 +331,12 @@
         <div class="tech-icon">&#x26A1;</div>
         <h3 data-i18n="tech.zerobias">Zerobias Router Optimization</h3>
         <p data-i18n="tech.zerobias.desc">Post-pruning router bias correction extends the lossless compression frontier. Zero cost, no retraining required.</p>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">&#x1F9E9;</div>
+        <h3 data-i18n="tech.adapter">Expert-as-Adapter</h3>
+        <p data-i18n="tech.adapter.desc">Pruned expert slots become domain adapters. A LoRA alternative using the MoE architecture itself &mdash; no external modules, native router integration.</p>
       </div>
 
     </div>
@@ -298,7 +413,7 @@
 <section class="cta">
   <div class="container">
     <h2 data-i18n="cta.title">Built on a MacBook. Funded by You.</h2>
-    <p class="cta-detail" data-i18n="cta.detail">This entire research — 22 phases, 4 models, 50+ experiments — was conducted on a single MacBook Pro (M4 Pro, 24GB RAM, 512GB SSD). No data center. No corporate funding.</p>
+    <p class="cta-detail" data-i18n="cta.detail">This entire research — 29+ phases, 6 model families, 8 published models, 100+ experiments — was conducted on a single MacBook Pro (M4 Pro, 24GB RAM, 512GB SSD). No data center. No corporate funding.</p>
     <p class="cta-detail" data-i18n="cta.funding">Your support directly funds GPU access to test on larger models, cloud compute for comprehensive benchmarking, and time to continue open-source research.</p>
     <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn btn-primary btn-large" data-i18n="cta.button">Support on Ko-fi</a>
   </div>
