@@ -26,7 +26,7 @@
         <a href="#technology" data-i18n="nav.technology">Technology</a>
         <a href="paper/" data-i18n="nav.paper">Paper</a>
         <a href="https://huggingface.co/goba-ai-labs" target="_blank" data-i18n="nav.huggingface">HuggingFace</a>
-        <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn-nav" data-i18n="nav.support">Support Us</a>
+        <a href="#cta" class="btn-nav" data-i18n="nav.support">Support Us</a>
       </div>
       <div class="nav-controls">
         <button id="theme-toggle" aria-label="Toggle theme"></button>
@@ -415,7 +415,11 @@
     <h2 data-i18n="cta.title">Built on a MacBook. Funded by You.</h2>
     <p class="cta-detail" data-i18n="cta.detail">This entire research — 29+ phases, 6 model families, 8 published models, 100+ experiments — was conducted on a single MacBook Pro (M4 Pro, 24GB RAM, 512GB SSD). No data center. No corporate funding.</p>
     <p class="cta-detail" data-i18n="cta.funding">Your support directly funds GPU access to test on larger models, cloud compute for comprehensive benchmarking, and time to continue open-source research.</p>
-    <a href="https://ko-fi.com/gobaailabs" target="_blank" class="btn btn-primary btn-large" data-i18n="cta.button">Support on Ko-fi</a>
+    <script async src="https://js.stripe.com/v3/buy-button.js"></script>
+    <stripe-buy-button
+      buy-button-id="buy_btn_1T864oDpCqiBjsMLdYasiruJ"
+      publishable-key="pk_live_51T7CqHDpCqiBjsMLOBqudLAKptl07IHajFaEsdDeaB7OAMVKzOADDh5ATU97vBtURnEE2KzwtWKhlzVjxSDhnmeM00tZ3qEcqw"
+    ></stripe-buy-button>
   </div>
 </section>
 
@@ -426,7 +430,7 @@
     <div class="footer-links">
       <a href="https://github.com/GOBA-AI-Labs" target="_blank">GitHub</a>
       <a href="https://huggingface.co/goba-ai-labs" target="_blank">HuggingFace</a>
-      <a href="https://ko-fi.com/gobaailabs" target="_blank">Ko-fi</a>
+      <a href="#cta">Support</a>
       <a href="legal/">特定商取引法に基づく表記</a>
     </div>
   </div>
