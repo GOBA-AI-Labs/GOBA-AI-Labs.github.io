@@ -260,6 +260,10 @@
       <h3 data-i18n="models.research.title">Research Highlights</h3>
       <div class="highlight-grid">
         <div class="highlight-item">
+          <span class="highlight-label" data-i18n="models.research.80b">80B: Calibration-Based Pruning</span>
+          <p data-i18n="models.research.80b.desc">Naive uniform pruning destroys capability &mdash; math drops to 0% at 75% removal, code generation -25pp at 50%. Our calibration-based layer-adaptive pruning removes 50% of experts with minimal loss: MMLU -5pp, HumanEval -2pp. 45 GB &rarr; 24 GB.</p>
+        </div>
+        <div class="highlight-item">
           <span class="highlight-label" data-i18n="models.research.qwen35">Qwen3.5-35B-A3B: Day-1 Pruning</span>
           <p data-i18n="models.research.qwen35.desc">Pruned within 24 hours of release. 5 methods compared on 256-expert DeltaNet hybrid. Weight-based pruning wins: MMLU 80% (-1pp), LiveCodeBench Easy 83.1% (142 problems). Published on HuggingFace.</p>
         </div>
